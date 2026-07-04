@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="べんとうナビの使い方。スポーツ遠征先で弁当が買える店を、会場名を入れるだけで探せます。検索のコツ、地図表示、チームへの共有方法まで解説。">
+  <title>使い方 | べんとうナビ</title>
+  <style>
+    :root { --orange: #E65100; --orange-light: #FF7043; --bg: #FFF8F2; --ink: #3E2723; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.9; }
+    header { background: linear-gradient(135deg, var(--orange-light), var(--orange), #BF360C); color: #fff; padding: 40px 20px 48px; border-radius: 0 0 28px 28px; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+    header .badge { display: inline-block; background: rgba(255,255,255,.18); padding: 3px 12px; border-radius: 20px; font-size: 12px; letter-spacing: 1px; }
+    header h1 { font-size: 28px; margin-top: 10px; letter-spacing: 2px; }
+    header p { opacity: .92; font-size: 14px; margin-top: 6px; }
+    nav.site { margin-top: 14px; font-size: 13px; }
+    nav.site a { color: #fff; text-decoration: none; opacity: .9; margin-right: 14px; border-bottom: 1px solid rgba(255,255,255,.4); }
+    main { max-width: 760px; margin: -24px auto 0; padding: 0 16px 60px; }
+    .card { background: #fff; border-radius: 20px; padding: 28px 24px; margin-top: 18px; box-shadow: 0 8px 24px rgba(191,54,12,.08); }
+    h2 { color: var(--orange); font-size: 20px; margin-bottom: 12px; }
+    h3 { font-size: 16px; margin: 18px 0 6px; }
+    ol.steps { counter-reset: n; list-style: none; }
+    ol.steps li { position: relative; padding: 10px 0 10px 46px; }
+    ol.steps li::before { counter-increment: n; content: counter(n); position: absolute; left: 0; top: 10px; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--orange-light), var(--orange)); color: #fff; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+    .tip { background: #FFF3E0; border-left: 4px solid var(--orange); border-radius: 8px; padding: 12px 14px; margin: 12px 0; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 10px 0; }
+    th, td { border: 1px solid #eee; padding: 8px 10px; text-align: left; }
+    th { background: #FAF6F1; }
+    .cta { display: inline-block; margin-top: 16px; background: linear-gradient(135deg, var(--orange-light), var(--orange)); color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 14px; font-weight: bold; box-shadow: 0 4px 12px rgba(230,81,0,.35); }
+    footer { text-align: center; font-size: 12px; color: #8D6E63; padding: 24px 16px 40px; }
+    footer a { color: var(--orange); text-decoration: none; margin: 0 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <span class="badge">遠征のお供に</span>
+      <h1>🍱 べんとうナビの使い方</h1>
+      <p>知らない土地でも、試合前の腹ごしらえはおまかせ。</p>
+      <nav class="site">
+        <a href="./">アプリを開く</a>
+        <a href="tips.html">遠征弁当のコツ集</a>
+        <a href="privacy.html">プライバシーポリシー</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="card">
+      <h2>べんとうナビとは</h2>
+      <p>べんとうナビは、スポーツの試合や大会で初めて訪れる土地でも、会場の近くで弁当が買える店をすぐに見つけられる無料の検索アプリです。コンビニ・スーパー・弁当や惣菜の店・パン屋・ファストフードを、会場からの距離順に一覧と地図で表示します。部活動の遠征、少年団の引率、社会人チームの遠方リーグ戦など、「現地の土地勘がない」場面で力を発揮します。</p>
+    </div>
+
+    <div class="card">
+      <h2>基本の使い方(3ステップ)</h2>
+      <ol class="steps">
+        <li><strong>会場名や住所を入力する</strong><br>例:「県総合運動公園 宮崎」「串間中学校」など。市区町村名を添えると精度が上がります。</li>
+        <li><strong>検索範囲を選んで「会場周辺を検索」</strong><br>500m〜3kmから選べます。徒歩で往復するなら1km、車があるなら3kmがおすすめです。</li>
+        <li><strong>店を選んで「経路」をタップ</strong><br>Googleマップが開き、徒歩の道順を案内してくれます。</li>
+      </ol>
+      <div class="tip">💡 すでに現地に着いている場合は「現在地」ボタンが便利です。ブラウザで位置情報の利用を許可すると、いまいる場所の周辺を検索できます。</div>
+    </div>
+
+    <div class="card">
+      <h2>検索のコツ</h2>
+      <h3>会場名がヒットしないとき</h3>
+      <p>「〇〇県△△市総合運動公園」のように長い正式名称よりも、<strong>「△△市 運動公園」のように市町村名と施設の種類で区切る</strong>とヒットしやすくなります。べんとうナビは見つからない場合に自動でクエリを変形して再検索しますが、最初から短く入れるのが確実です。</p>
+      <h3>候補が複数出たとき</h3>
+      <p>同じ名前の学校や公園は全国にたくさんあります。候補リストには住所が表示されるので、目的の都道府県のものを選んでください。</p>
+      <h3>カテゴリで絞り込む</h3>
+      <table>
+        <tr><th>カテゴリ</th><th>特徴</th></tr>
+        <tr><td>🏪 コンビニ</td><td>早朝から確実に開いている。試合日は売り切れに注意</td></tr>
+        <tr><td>🛒 スーパー</td><td>弁当・惣菜が安くて量も選べる。開店時間に注意</td></tr>
+        <tr><td>🍱 弁当・惣菜</td><td>ほか弁系・地元の弁当屋。できたてが強み</td></tr>
+        <tr><td>🥐 パン屋</td><td>軽めに済ませたい試合前に</td></tr>
+        <tr><td>🍔 ファストフード</td><td>店内で休憩もできる</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>便利な機能</h2>
+      <h3>地図表示</h3>
+      <p>検索結果の「地図」タブに切り替えると、会場を中心にした地図上で店の位置関係がひと目でわかります。マーカーをタップすると店の詳細と経路ボタンが表示されます。</p>
+      <h3>チームへの共有</h3>
+      <p>検索結果の共有アイコンを押すとリンクがコピーされます。チームのグループLINEなどに貼れば、<strong>全員が同じ検索結果をワンタップで開けます</strong>。リンクには会場の正確な位置が埋め込まれているので、開いた人が検索し直す必要はありません。</p>
+      <h3>検索履歴</h3>
+      <p>一度検索した会場は「最近の検索」に残ります。大会期間中に同じ会場を何度も調べるときに便利です。</p>
+    </div>
+
+    <div class="card" style="text-align:center">
+      <h2>さっそく使ってみる</h2>
+      <p>インストール不要・無料で使えます。</p>
+      <a class="cta" href="./">🍱 べんとうナビを開く</a>
+    </div>
+  </main>
+  <footer>
+    <a href="./">アプリ</a> | <a href="guide.html">使い方</a> | <a href="tips.html">遠征弁当のコツ集</a> | <a href="privacy.html">プライバシーポリシー</a>
+    <p style="margin-top:8px">© 2026 べんとうナビ - 地図データ © OpenStreetMap contributors</p>
+  </footer>
+</body>
+</html>
