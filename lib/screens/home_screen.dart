@@ -213,8 +213,10 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 12),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 12),
+        ),
       );
       await _searchAround(Place(
         displayName: '現在地',
@@ -364,12 +366,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Positioned(
             top: -40,
             right: -30,
-            child: _decoCircle(140, Colors.white.withOpacity(0.08)),
+            child: _decoCircle(140, Colors.white.withValues(alpha: 0.08)),
           ),
           Positioned(
             bottom: 20,
             left: -20,
-            child: _decoCircle(90, Colors.white.withOpacity(0.06)),
+            child: _decoCircle(90, Colors.white.withValues(alpha: 0.06)),
           ),
           Positioned(
             top: 30,
@@ -377,7 +379,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Text('🍱',
                 style: TextStyle(
                     fontSize: 64,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     shadows: const [
                       Shadow(color: Colors.black26, blurRadius: 12)
                     ])),
@@ -392,7 +394,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
+                      color: Colors.white.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Text('遠征のお供に',
@@ -415,7 +417,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 6),
                   Text('知らない土地でも、試合前の腹ごしらえはおまかせ。',
                       style: TextStyle(
-                          color: Colors.white.withOpacity(0.92), fontSize: 13)),
+                          color: Colors.white.withValues(alpha: 0.92), fontSize: 13)),
                 ],
               ),
             ),
@@ -441,7 +443,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFBF360C).withOpacity(0.14),
+            color: const Color(0xFFBF360C).withValues(alpha: 0.14),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -550,7 +552,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFE65100).withOpacity(0.35),
+                          color: const Color(0xFFE65100).withValues(alpha: 0.35),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -655,7 +657,7 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -712,7 +714,7 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -754,7 +756,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     backgroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(color: color.withOpacity(0.4)),
+                      side: BorderSide(color: color.withValues(alpha: 0.4)),
                     ),
                     onSelected: (sel) => setState(() {
                       sel ? _activeFilters.add(c) : _activeFilters.remove(c);
@@ -867,7 +869,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -879,17 +881,13 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 420,
           child: FlutterMap(
             options: MapOptions(
-              center: center,
-              zoom: _zoomForRadius(_radius),
+              initialCenter: center,
+              initialZoom: _zoomForRadius(_radius),
               maxZoom: 18,
-              interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-            ),
-            nonRotatedChildren: [
-              AttributionWidget.defaultWidget(
-                source: 'OpenStreetMap contributors',
-                onSourceTapped: null,
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
-            ],
+            ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -901,8 +899,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     point: center,
                     radius: _radius.toDouble(),
                     useRadiusInMeter: true,
-                    color: const Color(0xFFE65100).withOpacity(0.06),
-                    borderColor: const Color(0xFFE65100).withOpacity(0.45),
+                    color: const Color(0xFFE65100).withValues(alpha: 0.06),
+                    borderColor: const Color(0xFFE65100).withValues(alpha: 0.45),
                     borderStrokeWidth: 1.5,
                   ),
                 ],
@@ -914,7 +912,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     point: center,
                     width: 46,
                     height: 46,
-                    builder: (_) => const Icon(Icons.place,
+                    child: const Icon(Icons.place,
                         color: Color(0xFFD32F2F), size: 46),
                   ),
                   // 店舗マーカー
@@ -922,7 +920,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         point: LatLng(s.lat, s.lon),
                         width: 38,
                         height: 38,
-                        builder: (_) => GestureDetector(
+                        child: GestureDetector(
                           onTap: () => _showShopSheet(s),
                           child: Container(
                             decoration: BoxDecoration(
@@ -943,6 +941,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       )),
                 ],
+              ),
+              const SimpleAttributionWidget(
+                source: Text('OpenStreetMap contributors'),
               ),
             ],
           ),
@@ -982,7 +983,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.12),
+                      color: color.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Center(
@@ -1054,7 +1055,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1065,7 +1066,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 4),
           Text(label,
               style: TextStyle(
-                  color: color.withOpacity(0.8),
+                  color: color.withValues(alpha: 0.8),
                   fontSize: 11,
                   fontWeight: FontWeight.w600)),
         ],
@@ -1181,7 +1182,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -1255,7 +1256,7 @@ class _ShopCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1275,7 +1276,7 @@ class _ShopCard extends StatelessWidget {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
+                    color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Center(
@@ -1301,7 +1302,7 @@ class _ShopCard extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: color.withOpacity(0.1),
+                              color: color.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(shop.category.label,

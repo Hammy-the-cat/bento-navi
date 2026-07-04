@@ -1,10 +1,9 @@
-// ignore_for_file: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-import 'dart:js' as js;
-// ignore: undefined_prefixed_name
-import 'dart:ui' as ui;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
+import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
 
 final Set<String> _registeredViews = {};
 
@@ -12,23 +11,23 @@ final Set<String> _registeredViews = {};
 Widget buildAdsenseView(String client, String slot, double height) {
   final viewType = 'adsense-$slot';
   if (_registeredViews.add(viewType)) {
-    // ignore: undefined_prefixed_name
-    ui.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
-      final ins = html.Element.tag('ins')
-        ..className = 'adsbygoogle'
-        ..style.display = 'block'
-        ..style.width = '100%'
-        ..style.height = '${height.round()}px'
-        ..setAttribute('data-ad-client', client)
-        ..setAttribute('data-ad-slot', slot)
-        ..setAttribute('data-ad-format', 'auto')
-        ..setAttribute('data-full-width-responsive', 'false');
+    ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
+      final ins =
+          web.document.createElement('ins') as web.HTMLElement;
+      ins.className = 'adsbygoogle';
+      ins.style.display = 'block';
+      ins.style.width = '100%';
+      ins.style.height = '${height.round()}px';
+      ins.setAttribute('data-ad-client', client);
+      ins.setAttribute('data-ad-slot', slot);
+      ins.setAttribute('data-ad-format', 'auto');
+      ins.setAttribute('data-full-width-responsive', 'false');
       // 要素がDOMに挿入されてから広告のロードを要求する
       Future<void>.delayed(const Duration(milliseconds: 300), () {
         try {
-          final ads = js.context['adsbygoogle'];
-          if (ads != null) {
-            (ads as js.JsObject).callMethod('push', [js.JsObject.jsify({})]);
+          final ads = globalContext.getProperty('adsbygoogle'.toJS);
+          if (ads.isDefinedAndNotNull) {
+            (ads as JSObject).callMethod('push'.toJS, JSObject());
           }
         } catch (_) {
           // 広告ブロッカー等で失敗しても本体機能には影響させない

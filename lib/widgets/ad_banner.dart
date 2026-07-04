@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../config/ad_config.dart';
 import 'adsense_view_stub.dart'
-    if (dart.library.html) 'adsense_view_web.dart';
+    if (dart.library.js_interop) 'adsense_view_web.dart';
 
 /// 広告バナー。
 /// AdSenseのIDが設定済み(かつWeb)なら実広告を、
