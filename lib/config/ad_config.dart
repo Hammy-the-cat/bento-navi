@@ -8,18 +8,22 @@
 ///
 /// IDが未設定の間は、実広告の代わりにプレースホルダーが表示される。
 class AdConfig {
-  /// AdSenseのクライアントID (例: 'ca-pub-1234567890123456')
-  static const String adsenseClient = 'ca-pub-XXXXXXXXXXXXXXXX';
+  /// AdSenseのクライアントID
+  static const String adsenseClient = 'ca-pub-9774452859108904';
 
   /// 検索中(ローディング)画面に出す広告ユニットのスロットID
+  /// (審査通過後にAdSenseで「ディスプレイ広告」ユニットを作成して差し替える)
   static const String slotLoading = '0000000000';
 
   /// 検索結果リストの途中に出す広告ユニットのスロットID
+  /// (審査通過後にAdSenseで広告ユニットを作成して差し替える)
   static const String slotInFeed = '0000000001';
 
   /// リスト内広告を何件ごとに挟むか
   static const int inFeedInterval = 5;
 
-  /// IDが本物に差し替えられていれば true
-  static bool get enabled => !adsenseClient.contains('X');
+  /// クライアントIDとスロットIDの両方が本物に差し替えられていれば true。
+  /// スロット未作成の間はプレースホルダーを表示する。
+  static bool get enabled =>
+      !adsenseClient.contains('X') && slotLoading != '0000000000';
 }
