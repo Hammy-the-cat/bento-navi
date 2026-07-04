@@ -141,7 +141,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     String link;
     try {
-      link = '${Uri.base.origin}/?$params';
+      // GitHub Pagesのようなサブパス配信でも壊れないよう、現在のパスを使う
+      link = '${Uri.base.origin}${Uri.base.path}?$params';
     } catch (_) {
       link = 'https://bento-navi.example/?$params';
     }
