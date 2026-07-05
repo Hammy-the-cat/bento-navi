@@ -7,6 +7,7 @@ enum ShopCategory {
   bentoDeli,
   bakery,
   fastFood,
+  restaurant,
   other,
 }
 
@@ -23,6 +24,8 @@ extension ShopCategoryInfo on ShopCategory {
         return 'パン屋';
       case ShopCategory.fastFood:
         return 'ファストフード';
+      case ShopCategory.restaurant:
+        return '食堂(持ち帰り可)';
       case ShopCategory.other:
         return 'その他';
     }
@@ -40,6 +43,8 @@ extension ShopCategoryInfo on ShopCategory {
         return '🥐';
       case ShopCategory.fastFood:
         return '🍔';
+      case ShopCategory.restaurant:
+        return '🍚';
       case ShopCategory.other:
         return '🏬';
     }

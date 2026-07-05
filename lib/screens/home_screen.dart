@@ -26,6 +26,8 @@ Color categoryColor(ShopCategory c) {
       return const Color(0xFF8D6E63);
     case ShopCategory.fastFood:
       return const Color(0xFFFB8C00);
+    case ShopCategory.restaurant:
+      return const Color(0xFF00897B);
     case ShopCategory.other:
       return const Color(0xFF757575);
   }

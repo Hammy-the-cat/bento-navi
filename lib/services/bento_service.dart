@@ -152,13 +152,17 @@ class BentoService {
     double lon, {
     int radiusMeters = 1000,
   }) async {
+    // 地元の弁当屋はOSM上でジャンルタグがなく店名だけのことが多いため、
+    // タグ検索に加えて店名の正規表現でも拾う
     final query = '''
 [out:json][timeout:25];
 (
   nwr["shop"~"^(convenience|supermarket|deli|bakery)\$"](around:$radiusMeters,$lat,$lon);
   nwr["amenity"="fast_food"](around:$radiusMeters,$lat,$lon);
+  nwr["name"~"弁当|べんとう|ほか弁|ほっともっと|かまどや|オリジン|惣菜|仕出し"](around:$radiusMeters,$lat,$lon);
+  nwr["amenity"="restaurant"]["takeaway"~"^(yes|only)\$"](around:$radiusMeters,$lat,$lon);
 );
-out center tags 80;
+out center tags 100;
 ''';
     http.Response? res;
     Object? lastError;
@@ -223,7 +227,17 @@ out center tags 80;
     return unique;
   }
 
+  static final _bentoNamePattern =
+      RegExp(r'弁当|べんとう|ほか弁|ほっともっと|かまどや|オリジン|惣菜|仕出し');
+
   ShopCategory _categorize(Map<String, dynamic> tags) {
+    // 店名・ブランド・cuisineから弁当屋を最優先で判定
+    // (ほっともっと等のチェーンはOSM上fast_food扱いだが、利用者にとっては弁当屋)
+    final name = '${tags['name'] ?? ''} ${tags['brand'] ?? ''}';
+    final cuisine = tags['cuisine'] as String? ?? '';
+    if (_bentoNamePattern.hasMatch(name) || cuisine.contains('bento')) {
+      return ShopCategory.bentoDeli;
+    }
     switch (tags['shop'] as String?) {
       case 'convenience':
         return ShopCategory.convenience;
@@ -236,6 +250,9 @@ out center tags 80;
     }
     if (tags['amenity'] == 'fast_food') {
       return ShopCategory.fastFood;
+    }
+    if (tags['amenity'] == 'restaurant') {
+      return ShopCategory.restaurant;
     }
     return ShopCategory.other;
   }
