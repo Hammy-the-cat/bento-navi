@@ -60,6 +60,12 @@ class Shop {
   final double distanceMeters;
   final String? openingHours;
   final String? brand;
+  final String? address;
+  final String? phone;
+  final String? notes;
+  final String? sourceUrl;
+  final String? verificationStatus;
+  final bool isCurated;
 
   const Shop({
     required this.name,
@@ -69,6 +75,12 @@ class Shop {
     required this.distanceMeters,
     this.openingHours,
     this.brand,
+    this.address,
+    this.phone,
+    this.notes,
+    this.sourceUrl,
+    this.verificationStatus,
+    this.isCurated = false,
   });
 
   String get distanceLabel {
@@ -103,7 +115,8 @@ double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
   const r = 6371000.0;
   final dLat = _rad(lat2 - lat1);
   final dLon = _rad(lon2 - lon1);
-  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+  final a =
+      math.sin(dLat / 2) * math.sin(dLat / 2) +
       math.cos(_rad(lat1)) *
           math.cos(_rad(lat2)) *
           math.sin(dLon / 2) *

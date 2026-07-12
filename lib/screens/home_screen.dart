@@ -94,8 +94,9 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       WidgetsBinding.instance.addPostFrameCallback((_) => _searchAround(place));
     } else if (q != null && q.trim().isNotEmpty) {
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _searchByQuery(autoPick: true));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _searchByQuery(autoPick: true),
+      );
     }
   }
 
@@ -137,7 +138,8 @@ class _HomeScreenState extends State<HomeScreen> {
     // 座標を埋め込むことで、開いた側でジオコーディングの揺れが起きないようにする
     var params = 'q=${Uri.encodeComponent(query)}&r=$_radius';
     if (place != null) {
-      params += '&lat=${place.lat.toStringAsFixed(6)}'
+      params +=
+          '&lat=${place.lat.toStringAsFixed(6)}'
           '&lon=${place.lon.toStringAsFixed(6)}'
           '&name=${Uri.encodeComponent(place.displayName)}';
     }
@@ -209,7 +211,8 @@ class _HomeScreenState extends State<HomeScreen> {
           permission == LocationPermission.deniedForever) {
         setState(() {
           _loading = false;
-          _error = '位置情報がブロックされています。ブラウザのアドレスバーの鍵アイコン→「位置情報」から許可するか、'
+          _error =
+              '位置情報がブロックされています。ブラウザのアドレスバーの鍵アイコン→「位置情報」から許可するか、'
               '上の入力欄に会場名を入れて検索してください。';
         });
         return;
@@ -220,11 +223,9 @@ class _HomeScreenState extends State<HomeScreen> {
           timeLimit: Duration(seconds: 12),
         ),
       );
-      await _searchAround(Place(
-        displayName: '現在地',
-        lat: pos.latitude,
-        lon: pos.longitude,
-      ));
+      await _searchAround(
+        Place(displayName: '現在地', lat: pos.latitude, lon: pos.longitude),
+      );
     } on TimeoutException {
       setState(() {
         _loading = false;
@@ -262,19 +263,25 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('どの場所ですか？',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+              child: Text(
+                'どの場所ですか？',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
             ),
-            ...places.map((p) => ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFFFF3E0),
-                    child: Icon(Icons.place_outlined,
-                        color: Color(0xFFE65100)),
-                  ),
-                  title: Text(p.displayName,
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
-                  onTap: () => Navigator.pop(context, p),
-                )),
+            ...places.map(
+              (p) => ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFFFF3E0),
+                  child: Icon(Icons.place_outlined, color: Color(0xFFE65100)),
+                ),
+                title: Text(
+                  p.displayName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => Navigator.pop(context, p),
+              ),
+            ),
           ],
         ),
       ),
@@ -288,8 +295,11 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedPlace = place;
     });
     try {
-      final shops =
-          await _service.searchShops(place.lat, place.lon, radiusMeters: _radius);
+      final shops = await _service.searchShops(
+        place.lat,
+        place.lon,
+        radiusMeters: _radius,
+      );
       setState(() {
         _loading = false;
         _shops = shops;
@@ -306,7 +316,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openMap(Shop shop) async {
     final uri = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&destination=${shop.lat},${shop.lon}&travelmode=walking');
+      'https://www.google.com/maps/dir/?api=1&destination=${shop.lat},${shop.lon}&travelmode=walking',
+    );
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
@@ -378,13 +389,14 @@ class _HomeScreenState extends State<HomeScreen> {
           Positioned(
             top: 30,
             right: 40,
-            child: Text('🍱',
-                style: TextStyle(
-                    fontSize: 64,
-                    color: Colors.white.withValues(alpha: 0.9),
-                    shadows: const [
-                      Shadow(color: Colors.black26, blurRadius: 12)
-                    ])),
+            child: Text(
+              '🍱',
+              style: TextStyle(
+                fontSize: 64,
+                color: Colors.white.withValues(alpha: 0.9),
+                shadows: const [Shadow(color: Colors.black26, blurRadius: 12)],
+              ),
+            ),
           ),
           SafeArea(
             child: Padding(
@@ -393,33 +405,43 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text('遠征のお供に',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1)),
+                    child: const Text(
+                      '遠征のお供に',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 10),
-                  const Text('べんとうナビ',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 2,
-                          shadows: [
-                            Shadow(color: Colors.black26, blurRadius: 8)
-                          ])),
+                  const Text(
+                    'べんとうナビ',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                      shadows: [Shadow(color: Colors.black26, blurRadius: 8)],
+                    ),
+                  ),
                   const SizedBox(height: 6),
-                  Text('知らない土地でも、試合前の腹ごしらえはおまかせ。',
-                      style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.92), fontSize: 13)),
+                  Text(
+                    '知らない土地でも、試合前の腹ごしらえはおまかせ。',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      fontSize: 13,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -463,20 +485,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: const Color(0xFFFFF3E0),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child:
-                    const Icon(Icons.stadium_outlined, color: Color(0xFFE65100)),
+                child: const Icon(
+                  Icons.stadium_outlined,
+                  color: Color(0xFFE65100),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('試合会場の近くで探す',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                    Text('コンビニ・スーパー・弁当屋がすぐ見つかる',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.grey.shade600)),
+                    Text(
+                      '試合会場の近くで探す',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'コンビニ・スーパー・弁当屋がすぐ見つかる',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -496,10 +526,15 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: Color(0xFFE65100), width: 2),
+                borderSide: const BorderSide(
+                  color: Color(0xFFE65100),
+                  width: 2,
+                ),
               ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
             ),
             textInputAction: TextInputAction.search,
             onSubmitted: (_) => _searchByQuery(),
@@ -509,9 +544,12 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Icon(Icons.radar, size: 18, color: Colors.grey.shade600),
               const SizedBox(width: 6),
-              Text('検索範囲',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: Colors.grey.shade600)),
+              Text(
+                '検索範囲',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade600,
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Wrap(
@@ -554,7 +592,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFE65100).withValues(alpha: 0.35),
+                          color: const Color(
+                            0xFFE65100,
+                          ).withValues(alpha: 0.35),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -571,9 +611,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       icon: const Icon(Icons.search),
-                      label: const Text('会場周辺を検索',
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        '会場周辺を検索',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -585,14 +629,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: _loading ? null : _searchByCurrentLocation,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFE65100),
-                    side: const BorderSide(color: Color(0xFFE65100), width: 1.5),
+                    side: const BorderSide(
+                      color: Color(0xFFE65100),
+                      width: 1.5,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                   icon: const Icon(Icons.my_location, size: 18),
-                  label: const Text('現在地',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    '現在地',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -610,8 +659,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: const [
           CircularProgressIndicator(color: Color(0xFFE65100)),
           SizedBox(height: 16),
-          Text('お弁当スポットを探しています…',
-              style: TextStyle(color: Color(0xFF8D6E63))),
+          Text('お弁当スポットを探しています…', style: TextStyle(color: Color(0xFF8D6E63))),
           SizedBox(height: 20),
           AdBanner(slot: AdConfig.slotLoading, height: 250),
         ],
@@ -634,8 +682,10 @@ class _HomeScreenState extends State<HomeScreen> {
           const Icon(Icons.error_outline, color: Color(0xFFC62828)),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(_error!,
-                style: const TextStyle(color: Color(0xFFC62828), fontSize: 13)),
+            child: Text(
+              _error!,
+              style: const TextStyle(color: Color(0xFFC62828), fontSize: 13),
+            ),
           ),
         ],
       ),
@@ -675,8 +725,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: Text(
                     _selectedPlace?.displayName ?? '',
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -684,8 +735,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (_queryController.text.trim().isNotEmpty)
                   IconButton(
                     onPressed: _copyShareLink,
-                    icon: const Icon(Icons.share_outlined,
-                        size: 20, color: Color(0xFFE65100)),
+                    icon: const Icon(
+                      Icons.share_outlined,
+                      size: 20,
+                      color: Color(0xFFE65100),
+                    ),
                     tooltip: 'チームに共有リンクをコピー',
                     visualDensity: VisualDensity.compact,
                   ),
@@ -697,8 +751,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 _statBadge('${_shops.length}', '件ヒット', const Color(0xFFE65100)),
                 const SizedBox(width: 10),
                 if (nearest != null)
-                  _statBadge(nearest.distanceLabel, '最寄り',
-                      const Color(0xFF43A047)),
+                  _statBadge(
+                    nearest.distanceLabel,
+                    '最寄り',
+                    const Color(0xFF43A047),
+                  ),
               ],
             ),
           ],
@@ -724,10 +781,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: Row(
             children: [
-              _segButton('リスト', Icons.format_list_bulleted, !_showMap,
-                  () => setState(() => _showMap = false)),
-              _segButton('地図', Icons.map_outlined, _showMap,
-                  () => setState(() => _showMap = true)),
+              _segButton(
+                'リスト',
+                Icons.format_list_bulleted,
+                !_showMap,
+                () => setState(() => _showMap = false),
+              ),
+              _segButton(
+                '地図',
+                Icons.map_outlined,
+                _showMap,
+                () => setState(() => _showMap = true),
+              ),
             ],
           ),
         ),
@@ -783,13 +848,19 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const Text('😢', style: TextStyle(fontSize: 40)),
               const SizedBox(height: 8),
-              Text('この範囲では見つかりませんでした',
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.bold)),
+              Text(
+                'この範囲では見つかりませんでした',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 4),
-              Text('検索範囲を広げてみてください',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: Colors.grey.shade600)),
+              Text(
+                '検索範囲を広げてみてください',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade600,
+                ),
+              ),
             ],
           ),
         ),
@@ -806,7 +877,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final widgets = <Widget>[];
     for (var i = 0; i < shops.length; i++) {
       widgets.add(
-          _ShopCard(shop: shops[i], onOpenMap: () => _openMap(shops[i])));
+        _ShopCard(shop: shops[i], onOpenMap: () => _openMap(shops[i])),
+      );
       final isInterval = (i + 1) % AdConfig.inFeedInterval == 0;
       if (isInterval && i != shops.length - 1) {
         widgets.add(const AdBanner(slot: AdConfig.slotInFeed, height: 90));
@@ -816,7 +888,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _segButton(
-      String label, IconData icon, bool selected, VoidCallback onTap) {
+    String label,
+    IconData icon,
+    bool selected,
+    VoidCallback onTap,
+  ) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -826,22 +902,28 @@ class _HomeScreenState extends State<HomeScreen> {
           decoration: BoxDecoration(
             gradient: selected
                 ? const LinearGradient(
-                    colors: [Color(0xFFFF7043), Color(0xFFE65100)])
+                    colors: [Color(0xFFFF7043), Color(0xFFE65100)],
+                  )
                 : null,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon,
-                  size: 17,
-                  color: selected ? Colors.white : Colors.grey.shade600),
+              Icon(
+                icon,
+                size: 17,
+                color: selected ? Colors.white : Colors.grey.shade600,
+              ),
               const SizedBox(width: 6),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: selected ? Colors.white : Colors.grey.shade600)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: selected ? Colors.white : Colors.grey.shade600,
+                ),
+              ),
             ],
           ),
         ),
@@ -902,7 +984,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     radius: _radius.toDouble(),
                     useRadiusInMeter: true,
                     color: const Color(0xFFE65100).withValues(alpha: 0.06),
-                    borderColor: const Color(0xFFE65100).withValues(alpha: 0.45),
+                    borderColor: const Color(
+                      0xFFE65100,
+                    ).withValues(alpha: 0.45),
                     borderStrokeWidth: 1.5,
                   ),
                 ],
@@ -914,34 +998,42 @@ class _HomeScreenState extends State<HomeScreen> {
                     point: center,
                     width: 46,
                     height: 46,
-                    child: const Icon(Icons.place,
-                        color: Color(0xFFD32F2F), size: 46),
+                    child: const Icon(
+                      Icons.place,
+                      color: Color(0xFFD32F2F),
+                      size: 46,
+                    ),
                   ),
                   // 店舗マーカー
-                  ...shops.map((s) => Marker(
-                        point: LatLng(s.lat, s.lon),
-                        width: 38,
-                        height: 38,
-                        child: GestureDetector(
-                          onTap: () => _showShopSheet(s),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: categoryColor(s.category), width: 2.5),
-                              boxShadow: const [
-                                BoxShadow(
-                                    color: Colors.black26, blurRadius: 6),
-                              ],
+                  ...shops.map(
+                    (s) => Marker(
+                      point: LatLng(s.lat, s.lon),
+                      width: 38,
+                      height: 38,
+                      child: GestureDetector(
+                        onTap: () => _showShopSheet(s),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: categoryColor(s.category),
+                              width: 2.5,
                             ),
-                            child: Center(
-                              child: Text(s.category.emoji,
-                                  style: const TextStyle(fontSize: 17)),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black26, blurRadius: 6),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              s.category.emoji,
+                              style: const TextStyle(fontSize: 17),
                             ),
                           ),
                         ),
-                      )),
+                      ),
+                    ),
+                  ),
                 ],
               ),
               const SimpleAttributionWidget(
@@ -989,8 +1081,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Center(
-                      child: Text(shop.category.emoji,
-                          style: const TextStyle(fontSize: 26)),
+                      child: Text(
+                        shop.category.emoji,
+                        style: const TextStyle(fontSize: 26),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -998,58 +1092,121 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(shop.name,
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold)),
+                        Text(
+                          shop.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(height: 2),
                         Text(
-                            '${shop.category.label} ・ ${shop.distanceLabel} ・ ${shop.walkLabel}',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade600)),
+                          '${shop.category.label} ・ ${shop.distanceLabel} ・ ${shop.walkLabel}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ],
               ),
-              if (shop.openingHours != null) ...[
+              if (shop.isCurated) ...[
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(Icons.schedule, size: 14, color: Colors.grey.shade500),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text('営業時間: ${shop.openingHours}',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade700)),
-                    ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _openMap(shop);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE65100),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    shop.verificationStatus == '要営業確認'
+                        ? '調査データ・営業内容は要確認'
+                        : '調査済み店舗データ',
+                    style: const TextStyle(
+                      color: Color(0xFF2E7D32),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  icon: const Icon(Icons.directions_walk),
-                  label: const Text('Googleマップで経路を見る',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
+              ],
+              if (shop.address != null) ...[
+                const SizedBox(height: 10),
+                _shopDetailRow(Icons.location_on_outlined, shop.address!),
+              ],
+              if (shop.phone != null) ...[
+                const SizedBox(height: 8),
+                _shopDetailRow(Icons.phone_outlined, shop.phone!),
+              ],
+              if (shop.openingHours != null) ...[
+                const SizedBox(height: 10),
+                _shopDetailRow(Icons.schedule, '営業時間: ${shop.openingHours}'),
+              ],
+              if (shop.notes != null) ...[
+                const SizedBox(height: 8),
+                _shopDetailRow(Icons.info_outline, shop.notes!),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _openMap(shop);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE65100),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        icon: const Icon(Icons.directions_walk),
+                        label: const Text(
+                          '経路を見る',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (shop.sourceUrl != null) ...[
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      onPressed: () => launchUrl(Uri.parse(shop.sourceUrl!)),
+                      tooltip: '情報源を開く',
+                      icon: const Icon(Icons.open_in_new),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _shopDetailRow(IconData icon, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: Colors.grey.shade500),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1062,15 +1219,23 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Row(
         children: [
-          Text(value,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.w800, fontSize: 15)),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
+          ),
           const SizedBox(width: 4),
-          Text(label,
-              style: TextStyle(
-                  color: color.withValues(alpha: 0.8),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: TextStyle(
+              color: color.withValues(alpha: 0.8),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -1079,8 +1244,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── フッターリンク ──────────────────────────
   Future<void> _openPage(String page) async {
     try {
-      await launchUrl(Uri.base.resolve(page),
-          mode: LaunchMode.platformDefault);
+      await launchUrl(Uri.base.resolve(page), mode: LaunchMode.platformDefault);
     } catch (_) {
       // Web以外や解決失敗時は何もしない
     }
@@ -1094,13 +1258,13 @@ class _HomeScreenState extends State<HomeScreen> {
       decorationColor: Colors.grey.shade400,
     );
     Widget link(String label, String page) => InkWell(
-          onTap: () => _openPage(page),
-          borderRadius: BorderRadius.circular(6),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Text(label, style: linkStyle),
-          ),
-        );
+      onTap: () => _openPage(page),
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Text(label, style: linkStyle),
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.only(top: 20),
       child: Column(
@@ -1114,8 +1278,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          Text('地図データ © OpenStreetMap contributors',
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+          Text(
+            '地図データ © OpenStreetMap contributors',
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+          ),
         ],
       ),
     );
@@ -1134,10 +1300,13 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Icon(Icons.history, size: 16, color: Colors.grey.shade600),
                 const SizedBox(width: 6),
-                Text('最近の検索',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w600)),
+                Text(
+                  '最近の検索',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1146,11 +1315,18 @@ class _HomeScreenState extends State<HomeScreen> {
             runSpacing: 8,
             children: _history.map((q) {
               return ActionChip(
-                avatar:
-                    const Icon(Icons.replay, size: 14, color: Color(0xFFE65100)),
-                label: Text(q,
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w600)),
+                avatar: const Icon(
+                  Icons.replay,
+                  size: 14,
+                  color: Color(0xFFE65100),
+                ),
+                label: Text(
+                  q,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 backgroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
@@ -1204,9 +1380,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: const Text('💡', style: TextStyle(fontSize: 18)),
               ),
               const SizedBox(width: 10),
-              Text('遠征弁当のコツ',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
+              Text(
+                '遠征弁当のコツ',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -1226,9 +1405,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(t[0], style: const TextStyle(fontSize: 20)),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(t[1],
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            height: 1.5, color: const Color(0xFF5D4037))),
+                    child: Text(
+                      t[1],
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        height: 1.5,
+                        color: const Color(0xFF5D4037),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1282,8 +1465,10 @@ class _ShopCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Center(
-                    child: Text(shop.category.emoji,
-                        style: const TextStyle(fontSize: 26)),
+                    child: Text(
+                      shop.category.emoji,
+                      style: const TextStyle(fontSize: 26),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -1292,49 +1477,70 @@ class _ShopCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(shop.name,
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
+                      Text(
+                        shop.name,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: color.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Text(shop.category.label,
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: color)),
+                            child: Text(
+                              shop.category.label,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: color,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          Icon(Icons.directions_walk,
-                              size: 13, color: Colors.grey.shade500),
-                          Text(shop.walkLabel.replaceAll('徒歩 ', ''),
-                              style: TextStyle(
-                                  fontSize: 11, color: Colors.grey.shade600)),
+                          Icon(
+                            Icons.directions_walk,
+                            size: 13,
+                            color: Colors.grey.shade500,
+                          ),
+                          Text(
+                            shop.walkLabel.replaceAll('徒歩 ', ''),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
                         ],
                       ),
                       if (shop.openingHours != null) ...[
                         const SizedBox(height: 3),
                         Row(
                           children: [
-                            Icon(Icons.schedule,
-                                size: 12, color: Colors.grey.shade500),
+                            Icon(
+                              Icons.schedule,
+                              size: 12,
+                              color: Colors.grey.shade500,
+                            ),
                             const SizedBox(width: 3),
                             Expanded(
-                              child: Text(shop.openingHours!,
-                                  style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.grey.shade600),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
+                              child: Text(
+                                shop.openingHours!,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey.shade600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
@@ -1347,15 +1553,20 @@ class _ShopCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(shop.distanceLabel,
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: color)),
+                    Text(
+                      shop.distanceLabel,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFFFF7043), Color(0xFFE65100)],
@@ -1366,11 +1577,14 @@ class _ShopCard extends StatelessWidget {
                         children: const [
                           Icon(Icons.near_me, size: 12, color: Colors.white),
                           SizedBox(width: 3),
-                          Text('経路',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white)),
+                          Text(
+                            '経路',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                         ],
                       ),
                     ),

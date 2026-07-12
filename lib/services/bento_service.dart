@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart' show rootBundle;
 
 import '../models/shop.dart';
 
@@ -17,6 +18,8 @@ class BentoService {
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
   ];
+
+  List<Map<String, dynamic>>? _curatedCache;
 
   /// 施設名の分割に使うキーワード（長いものを先に）
   static const _facilityKeywords = [
@@ -47,19 +50,16 @@ class BentoService {
   /// Nominatimは「県名+施設名」の連結クエリに弱いため、
   /// 見つからない場合はクエリを段階的に変形して再検索する。
   Future<List<Place>> geocode(String query) async {
-    final normalized = query
-        .replaceAll('　', ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    final normalized =
+        query.replaceAll('　', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     if (normalized.isEmpty) return [];
 
     final tokens = normalized.split(' ');
     final attempts = <String>[normalized];
 
     // 都道府県トークンを外した施設名のみ
-    final nonPref = tokens
-        .where((t) => !RegExp(r'^.{2,3}[都道府県]$').hasMatch(t))
-        .join(' ');
+    final nonPref =
+        tokens.where((t) => !RegExp(r'^.{2,3}[都道府県]$').hasMatch(t)).join(' ');
     if (nonPref.isNotEmpty && nonPref != normalized) {
       attempts.add(nonPref);
     }
@@ -73,7 +73,9 @@ class BentoService {
         attempts.add('$prefix $kw');
         // 「総合」「市民」などの修飾語を落とした形も試す
         final stripped = prefix.replaceAll(
-            RegExp(r'(総合|市民|町民|村民|県立|市立|町立|村立)$'), '');
+          RegExp(r'(総合|市民|町民|村民|県立|市立|町立|村立)$'),
+          '',
+        );
         if (stripped.isNotEmpty && stripped != prefix) {
           attempts.add('$stripped $kw');
         }
@@ -108,24 +110,28 @@ class BentoService {
   }
 
   Future<List<Place>> _geocodeOnce(String query) async {
-    final uri = Uri.parse(_nominatimBase).replace(queryParameters: {
-      'q': query,
-      'format': 'json',
-      'limit': '5',
-      'countrycodes': 'jp',
-      'accept-language': 'ja',
-    });
+    final uri = Uri.parse(_nominatimBase).replace(
+      queryParameters: {
+        'q': query,
+        'format': 'json',
+        'limit': '5',
+        'countrycodes': 'jp',
+        'accept-language': 'ja',
+      },
+    );
     final res = await http.get(uri);
     if (res.statusCode != 200) {
       throw Exception('場所の検索に失敗しました (HTTP ${res.statusCode})');
     }
     final list = jsonDecode(utf8.decode(res.bodyBytes)) as List<dynamic>;
     return list
-        .map((e) => Place(
-              displayName: e['display_name'] as String? ?? '不明な場所',
-              lat: double.parse(e['lat'] as String),
-              lon: double.parse(e['lon'] as String),
-            ))
+        .map(
+          (e) => Place(
+            displayName: e['display_name'] as String? ?? '不明な場所',
+            lat: double.parse(e['lat'] as String),
+            lon: double.parse(e['lon'] as String),
+          ),
+        )
         .toList();
   }
 
@@ -152,6 +158,11 @@ class BentoService {
     double lon, {
     int radiusMeters = 1000,
   }) async {
+    final curated = await searchCuratedShops(
+      lat,
+      lon,
+      radiusMeters: radiusMeters,
+    );
     // 地元の弁当屋はOSM上でジャンルタグがなく店名だけのことが多いため、
     // タグ検索に加えて店名の正規表現でも拾う
     final query = '''
@@ -166,13 +177,18 @@ out center tags 100;
 ''';
     http.Response? res;
     Object? lastError;
-    for (final endpoint in _overpassEndpoints) {
+    // 調査済み店舗がある地域では、OSMは補完用途として最初の1系統だけを
+    // 短時間試す。応答がなくても固定データをすぐ返せるようにする。
+    final endpoints =
+        curated.isEmpty ? _overpassEndpoints : _overpassEndpoints.take(1);
+    final timeout = Duration(seconds: curated.isEmpty ? 20 : 5);
+    for (final endpoint in endpoints) {
       try {
         final r = await http.post(
           Uri.parse(endpoint),
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
           body: {'data': query},
-        ).timeout(const Duration(seconds: 20));
+        ).timeout(timeout);
         if (r.statusCode == 200) {
           res = r;
           break;
@@ -183,6 +199,7 @@ out center tags 100;
       }
     }
     if (res == null) {
+      if (curated.isNotEmpty) return curated;
       throw Exception('周辺の店舗検索に失敗しました ($lastError)。少し待って再試行してください。');
     }
     final json = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
@@ -205,15 +222,17 @@ out center tags 100;
       }
       if (sLat == null || sLon == null) continue;
 
-      shops.add(Shop(
-        name: name,
-        category: _categorize(tags),
-        lat: sLat,
-        lon: sLon,
-        distanceMeters: haversineMeters(lat, lon, sLat, sLon),
-        openingHours: tags['opening_hours'] as String?,
-        brand: tags['brand'] as String?,
-      ));
+      shops.add(
+        Shop(
+          name: name,
+          category: _categorize(tags),
+          lat: sLat,
+          lon: sLon,
+          distanceMeters: haversineMeters(lat, lon, sLat, sLon),
+          openingHours: tags['opening_hours'] as String?,
+          brand: tags['brand'] as String?,
+        ),
+      );
     }
 
     // 重複（同名・近接）を除去し距離順に並べる
@@ -224,11 +243,86 @@ out center tags 100;
       final key = '${s.name}_${(s.distanceMeters / 50).round()}';
       if (seen.add(key)) unique.add(s);
     }
-    return unique;
+    // 調査済みデータを優先し、OSMに同名店舗がある場合は重複を除く。
+    final merged = <Shop>[...curated];
+    final seenNames = curated.map((s) => _normalizeName(s.name)).toSet();
+    for (final shop in unique) {
+      if (seenNames.add(_normalizeName(shop.name))) merged.add(shop);
+    }
+    merged.sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
+    return merged;
   }
 
-  static final _bentoNamePattern =
-      RegExp(r'弁当|べんとう|ほか弁|ほっともっと|かまどや|オリジン|惣菜|仕出し');
+  /// スプレッドシートで確認した店舗を、APIに依存せず検索する。
+  Future<List<Shop>> searchCuratedShops(
+    double lat,
+    double lon, {
+    int radiusMeters = 1000,
+  }) async {
+    final data = await _loadCuratedData();
+    final shops = <Shop>[];
+    for (final item in data) {
+      final shopLat = (item['lat'] as num).toDouble();
+      final shopLon = (item['lon'] as num).toDouble();
+      final distance = haversineMeters(lat, lon, shopLat, shopLon);
+      if (distance > radiusMeters) continue;
+
+      shops.add(
+        Shop(
+          name: item['name'] as String,
+          category: _curatedCategory(item['category'] as String? ?? ''),
+          lat: shopLat,
+          lon: shopLon,
+          distanceMeters: distance,
+          openingHours: _nonEmpty(item['hours']),
+          address: _nonEmpty(item['address']),
+          phone: _nonEmpty(item['phone']),
+          notes: _nonEmpty(item['notes']),
+          sourceUrl: _nonEmpty(item['sourceUrl']),
+          verificationStatus: _nonEmpty(item['status']),
+          isCurated: true,
+        ),
+      );
+    }
+    shops.sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
+    return shops;
+  }
+
+  Future<List<Map<String, dynamic>>> _loadCuratedData() async {
+    if (_curatedCache != null) return _curatedCache!;
+    final text = await rootBundle.loadString('assets/shops.json');
+    final list = jsonDecode(text) as List<dynamic>;
+    return _curatedCache = list.cast<Map<String, dynamic>>();
+  }
+
+  String? _nonEmpty(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
+  }
+
+  String _normalizeName(String name) =>
+      name.toLowerCase().replaceAll(RegExp(r'[\s　・･（）()]'), '');
+
+  ShopCategory _curatedCategory(String value) {
+    if (value.contains('スーパー')) return ShopCategory.supermarket;
+    if (RegExp(r'弁当|惣菜|仕出し|おにぎり|持ち帰り寿司').hasMatch(value)) {
+      return ShopCategory.bentoDeli;
+    }
+    if (RegExp(r'パン|サンドイッチ').hasMatch(value)) {
+      return ShopCategory.bakery;
+    }
+    if (RegExp(r'唐揚げ|揚げ物|ファストフード').hasMatch(value)) {
+      return ShopCategory.fastFood;
+    }
+    if (RegExp(r'カフェ|食堂|レストラン|居酒屋|焼肉|中華|うなぎ|寿司|テイクアウト').hasMatch(value)) {
+      return ShopCategory.restaurant;
+    }
+    return ShopCategory.other;
+  }
+
+  static final _bentoNamePattern = RegExp(
+    r'弁当|べんとう|ほか弁|ほっともっと|かまどや|オリジン|惣菜|仕出し',
+  );
 
   ShopCategory _categorize(Map<String, dynamic> tags) {
     // 店名・ブランド・cuisineから弁当屋を最優先で判定
