@@ -321,6 +321,28 @@ class _HomeScreenState extends State<HomeScreen> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _callShop(Shop shop) async {
+    final phone = shop.phone;
+    if (phone == null) return;
+
+    final dialNumber = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    var launched = false;
+    try {
+      launched = await launchUrl(
+        Uri(scheme: 'tel', path: dialNumber),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      launched = false;
+    }
+
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('電話アプリを開けませんでした。電話番号: $phone')),
+      );
+    }
+  }
+
   List<Shop> get _visibleShops {
     if (_activeFilters.isEmpty) return _shops;
     return _shops.where((s) => _activeFilters.contains(s.category)).toList();
@@ -877,7 +899,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final widgets = <Widget>[];
     for (var i = 0; i < shops.length; i++) {
       widgets.add(
-        _ShopCard(shop: shops[i], onOpenMap: () => _openMap(shops[i])),
+        _ShopCard(
+          shop: shops[i],
+          onOpenMap: () => _openMap(shops[i]),
+          onCall: () => _callShop(shops[i]),
+        ),
       );
       final isInterval = (i + 1) % AdConfig.inFeedInterval == 0;
       if (isInterval && i != shops.length - 1) {
@@ -1154,6 +1180,29 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
               Row(
                 children: [
+                  if (shop.phone != null) ...[
+                    Expanded(
+                      child: SizedBox(
+                        height: 48,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _callShop(shop),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF2E7D32),
+                            side: const BorderSide(color: Color(0xFF2E7D32)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          icon: const Icon(Icons.phone),
+                          label: const Text(
+                            '電話する',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   Expanded(
                     child: SizedBox(
                       height: 48,
@@ -1427,8 +1476,13 @@ class _HomeScreenState extends State<HomeScreen> {
 class _ShopCard extends StatelessWidget {
   final Shop shop;
   final VoidCallback onOpenMap;
+  final VoidCallback onCall;
 
-  const _ShopCard({required this.shop, required this.onOpenMap});
+  const _ShopCard({
+    required this.shop,
+    required this.onOpenMap,
+    required this.onCall,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1562,6 +1616,33 @@ class _ShopCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
+                    if (shop.phone != null) ...[
+                      SizedBox(
+                        height: 30,
+                        child: OutlinedButton.icon(
+                          onPressed: onCall,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF2E7D32),
+                            side: const BorderSide(color: Color(0xFF81C784)),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 30),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: const Icon(Icons.phone, size: 13),
+                          label: const Text(
+                            '電話',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
