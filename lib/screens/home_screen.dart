@@ -33,6 +33,19 @@ Color categoryColor(ShopCategory c) {
   }
 }
 
+Color deliveryColor(DeliveryAvailability availability) {
+  switch (availability) {
+    case DeliveryAvailability.available:
+      return const Color(0xFF2E7D32);
+    case DeliveryAvailability.conditional:
+      return const Color(0xFFEF6C00);
+    case DeliveryAvailability.unavailable:
+      return const Color(0xFFC62828);
+    case DeliveryAvailability.unknown:
+      return const Color(0xFF616161);
+  }
+}
+
 class HomeScreen extends StatefulWidget {
   final String? initialQuery;
   final int? initialRadius;
@@ -1169,6 +1182,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 8),
                 _shopDetailRow(Icons.phone_outlined, shop.phone!),
               ],
+              const SizedBox(height: 8),
+              _DeliveryBadge(availability: shop.deliveryAvailability),
               if (shop.openingHours != null) ...[
                 const SizedBox(height: 10),
                 _shopDetailRow(Icons.schedule, '営業時間: ${shop.openingHours}'),
@@ -1472,6 +1487,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+class _DeliveryBadge extends StatelessWidget {
+  final DeliveryAvailability availability;
+
+  const _DeliveryBadge({required this.availability});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = deliveryColor(availability);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.local_shipping_outlined, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            availability.label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── 店舗カード ──────────────────────────────
 class _ShopCard extends StatelessWidget {
   final Shop shop;
@@ -1599,6 +1648,10 @@ class _ShopCard extends StatelessWidget {
                           ],
                         ),
                       ],
+                      const SizedBox(height: 4),
+                      _DeliveryBadge(
+                        availability: shop.deliveryAvailability,
+                      ),
                     ],
                   ),
                 ),

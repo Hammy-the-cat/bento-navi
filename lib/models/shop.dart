@@ -11,6 +11,28 @@ enum ShopCategory {
   other,
 }
 
+enum DeliveryAvailability {
+  available,
+  conditional,
+  unavailable,
+  unknown,
+}
+
+extension DeliveryAvailabilityInfo on DeliveryAvailability {
+  String get label {
+    switch (this) {
+      case DeliveryAvailability.available:
+        return '配達可';
+      case DeliveryAvailability.conditional:
+        return '条件付配達';
+      case DeliveryAvailability.unavailable:
+        return '配達なし';
+      case DeliveryAvailability.unknown:
+        return '配達要確認';
+    }
+  }
+}
+
 extension ShopCategoryInfo on ShopCategory {
   String get label {
     switch (this) {
@@ -95,6 +117,33 @@ class Shop {
     final minutes = (distanceMeters / 80).ceil();
     return '徒歩 約$minutes分';
   }
+
+  DeliveryAvailability get deliveryAvailability {
+    final text = '$name ${notes ?? ''}';
+    final hasDeliveryWord = RegExp(r'配達|宅配|配食|デリバリー').hasMatch(text);
+    if (!hasDeliveryWord) return DeliveryAvailability.unknown;
+
+    final hasUnavailable = RegExp(
+      r'配達なし|配達不可|配達は行っていない|配達していない|店舗受取のみ|店頭受取のみ',
+    ).hasMatch(text);
+    final hasAvailable = RegExp(
+      r'配達可|配達可能|配達対応|配達あり|へ配達|市内配達|町内配達|全域へ配達|'
+      r'指定場所への配達|配達中心|配達専業|配達実績|配達・|配達。|配達（|宅配弁当|配食サービス',
+    ).hasMatch(text);
+
+    if (hasAvailable) {
+      final hasConditions = hasUnavailable ||
+          RegExp(
+            r'要相談|相談可|条件|範囲|以上|から配達|予約|前日|当日|一部|平日|'
+            r'地域|近隣|周辺|限定|のみ配達',
+          ).hasMatch(text);
+      return hasConditions
+          ? DeliveryAvailability.conditional
+          : DeliveryAvailability.available;
+    }
+    if (hasUnavailable) return DeliveryAvailability.unavailable;
+    return DeliveryAvailability.unknown;
+  }
 }
 
 /// ジオコーディング結果
@@ -115,8 +164,7 @@ double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
   const r = 6371000.0;
   final dLat = _rad(lat2 - lat1);
   final dLon = _rad(lon2 - lon1);
-  final a =
-      math.sin(dLat / 2) * math.sin(dLat / 2) +
+  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
       math.cos(_rad(lat1)) *
           math.cos(_rad(lat2)) *
           math.sin(dLon / 2) *
