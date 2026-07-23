@@ -356,6 +356,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _resetSearch() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _queryController.clear();
+    setState(() {
+      _loading = false;
+      _error = null;
+      _selectedPlace = null;
+      _shops = [];
+      _searched = false;
+      _showMap = false;
+      _radius = 1000;
+      _activeFilters.clear();
+    });
+  }
+
   List<Shop> get _visibleShops {
     if (_activeFilters.isEmpty) return _shops;
     return _shops.where((s) => _activeFilters.contains(s.category)).toList();
@@ -778,6 +793,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     tooltip: 'チームに共有リンクをコピー',
                     visualDensity: VisualDensity.compact,
                   ),
+                TextButton.icon(
+                  onPressed: _resetSearch,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('リセット'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFE65100),
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
