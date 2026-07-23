@@ -1336,8 +1336,10 @@ class _HomeScreenState extends State<HomeScreen> {
           Wrap(
             alignment: WrapAlignment.center,
             children: [
+              link('記事一覧', 'articles.html'),
               link('使い方', 'guide.html'),
-              link('遠征弁当のコツ集', 'tips.html'),
+              link('よくある質問', 'faq.html'),
+              link('運営者について', 'about.html'),
               link('プライバシーポリシー', 'privacy.html'),
             ],
           ),
