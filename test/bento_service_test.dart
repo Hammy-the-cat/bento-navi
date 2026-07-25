@@ -32,4 +32,35 @@ void main() {
     expect(shops.any((shop) => shop.name == '総合仕出し 大太鼓'), isTrue);
     expect(shops.any((shop) => shop.name == 'えびのPA下り スナックコーナー'), isTrue);
   });
+
+  test('追加した日向市の店舗情報を検索結果へ反映できる', () async {
+    final service = BentoService();
+    final shops = await service.searchCuratedShops(
+      32.4236,
+      131.6343,
+      radiusMeters: 3000,
+    );
+
+    expect(shops.any((shop) => shop.name == 'だいずきっちん'), isTrue);
+    expect(shops.any((shop) => shop.name == 'お弁当屋さん ま結'), isTrue);
+    final deliveryShop = shops.firstWhere((shop) => shop.name == 'お弁当屋さん ま結');
+    expect(deliveryShop.phone, '070-2166-1158');
+    expect(deliveryShop.notes, contains('配達対応'));
+  });
+
+  test('追加した都城市の店舗情報を検索結果へ反映できる', () async {
+    final service = BentoService();
+    final shops = await service.searchCuratedShops(
+      31.7313,
+      131.0692,
+      radiusMeters: 6000,
+    );
+
+    expect(shops.any((shop) => shop.name == 'tanbo.'), isTrue);
+    expect(shops.any((shop) => shop.name == '居食館 南都乃風 牟田町店'), isTrue);
+    expect(
+      shops.firstWhere((shop) => shop.name == 'tanbo.').notes,
+      contains('配達料500円'),
+    );
+  });
 }
