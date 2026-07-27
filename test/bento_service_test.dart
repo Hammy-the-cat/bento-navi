@@ -63,4 +63,18 @@ void main() {
       contains('配達料500円'),
     );
   });
+
+  test('鹿児島県の店舗情報を電話・配達メモ付きで検索できる', () async {
+    final service = BentoService();
+    final shops = await service.searchCuratedShops(
+      31.579859,
+      130.552795,
+      radiusMeters: 3000,
+    );
+
+    final shop = shops.firstWhere((shop) => shop.name == '薩摩仕出し料理 典座');
+    expect(shop.phone, '099-253-3130');
+    expect(shop.notes, contains('配達'));
+    expect(shop.isCurated, isTrue);
+  });
 }

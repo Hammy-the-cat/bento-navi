@@ -92,12 +92,15 @@ function loadExisting(outputPath, baselineRef) {
 }
 
 function main() {
-  const csvPath = process.argv[2];
-  const outputPath = process.argv[3] ?? 'assets/shops.json';
-  const baselineRef = process.argv[4];
+  const args = process.argv.slice(2);
+  const mergeExisting = args.includes('--merge-existing');
+  const positionalArgs = args.filter((arg) => arg !== '--merge-existing');
+  const csvPath = positionalArgs[0];
+  const outputPath = positionalArgs[1] ?? 'assets/shops.json';
+  const baselineRef = positionalArgs[2];
   if (!csvPath) {
     console.error(
-      'Usage: node tool/sync_shops.mjs <store-master.csv> [output.json] [git:<ref>:<path>]',
+      'Usage: node tool/sync_shops.mjs <store-master.csv> [output.json] [git:<ref>:<path>] [--merge-existing]',
     );
     process.exit(1);
   }
@@ -171,6 +174,13 @@ function main() {
         previous?.coordinateAccuracy,
       ),
     });
+  }
+
+  if (mergeExisting) {
+    const importedIds = new Set(shops.map((shop) => shop.id));
+    for (const shop of existing) {
+      if (!importedIds.has(shop.id)) shops.push(shop);
+    }
   }
 
   shops.sort((a, b) => a.id.localeCompare(b.id, 'ja'));
