@@ -1,12 +1,15 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../config/ad_config.dart';
 import 'adsense_view_stub.dart'
     if (dart.library.js_interop) 'adsense_view_web.dart';
+import 'mobile_ads_stub.dart' if (dart.library.io) 'mobile_ads_impl.dart';
 
 /// 広告バナー。
-/// AdSenseのIDが設定済み(かつWeb)なら実広告を、
-/// 未設定ならプレースホルダーを表示する。
+/// - Web        : AdSense(スロット未設定の間はプレースホルダー)
+/// - iOS/Android: AdMob
+/// - それ以外    : プレースホルダー
 class AdBanner extends StatelessWidget {
   final String slot;
   final double height;
@@ -28,11 +31,7 @@ class AdBanner extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          Positioned.fill(
-            child: AdConfig.enabled
-                ? buildAdsenseView(AdConfig.adsenseClient, slot, height)
-                : _placeholder(theme),
-          ),
+          Positioned.fill(child: _adContent(theme)),
           // 広告であることの明示ラベル
           Positioned(
             top: 0,
@@ -55,6 +54,17 @@ class AdBanner extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// プラットフォームに応じて表示する広告を選ぶ
+  Widget _adContent(ThemeData theme) {
+    if (kIsWeb) {
+      return AdConfig.adsenseEnabled
+          ? buildAdsenseView(AdConfig.adsenseClient, slot, height)
+          : _placeholder(theme);
+    }
+    // モバイルはAdMob。非対応環境(デスクトップ等)ではnullが返る
+    return buildAdmobBanner(height) ?? _placeholder(theme);
   }
 
   Widget _placeholder(ThemeData theme) {

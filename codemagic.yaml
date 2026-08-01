@@ -1,0 +1,78 @@
+# Codemagic ビルド設定(iOS / App Store 提出用)
+#
+# ■ 事前にCodemagicの画面で行う設定(1回だけ)
+#   1. https://codemagic.io にGitHubアカウントでサインアップ
+#   2. このリポジトリ(bento-navi)を追加
+#   3. Apple Developer Program($99/年)に登録後、App Store Connect で
+#      「Users and Access → Integrations → App Store Connect API」から
+#      APIキー(.p8ファイル / Issuer ID / Key ID)を発行
+#   4. Codemagic の Teams → Integrations → App Store Connect に
+#      そのAPIキーを登録し、名前を「bento-navi-asc」にする
+#      (別の名前にした場合は、下の app_store_connect: の値を合わせて変更)
+#   5. App Store Connect でアプリを新規作成し、Bundle IDに
+#      com.hammythecat.bentoNavi を指定
+#
+# ■ ビルドの流れ
+#   Codemagicがクラウド上のMacで ビルド → 署名 → TestFlightへアップロード
+#   まで自動実行する。Windowsのブラウザだけで完結する。
+
+workflows:
+  ios-release:
+    name: iOS リリース (TestFlight)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    integrations:
+      # ↓ Codemagicに登録したApp Store Connect APIキーの名前
+      app_store_connect: bento-navi-asc
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        # 証明書・プロビジョニングプロファイルはCodemagicが自動生成する
+        distribution_type: app_store
+        bundle_identifier: com.hammythecat.bentoNavi
+
+    scripts:
+      - name: Flutterパッケージを取得
+        script: flutter pub get
+
+      - name: CocoaPodsを取得
+        script: find . -name "Podfile" -execdir pod install \;
+
+      - name: 静的解析
+        script: flutter analyze
+
+      - name: テスト
+        script: flutter test
+
+      - name: 署名プロファイルを適用
+        script: xcode-project use-profiles
+
+      - name: iOSビルド(ipa作成)
+        script: |
+          # ビルド番号はCodemagicが自動でインクリメントする値を使う
+          flutter build ipa --release \
+            --build-number=$PROJECT_BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      email:
+        recipients:
+          - excitedcherry0909@gmail.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
+        # TestFlight(内部テスト)へ自動アップロード。
+        # 実際の審査提出は App Store Connect の画面から手動で行う。
+        submit_to_testflight: true
+        # 審査へ自動提出したい場合は下をtrueにする(慣れるまではfalse推奨)
+        submit_to_app_store: false

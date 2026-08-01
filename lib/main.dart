@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 
 import 'screens/home_screen.dart';
+import 'widgets/mobile_ads_stub.dart'
+    if (dart.library.io) 'widgets/mobile_ads_impl.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // モバイル(iOS/Android)のみAdMob SDKを初期化。Webでは何もしない。
+  // 待たずに進めることで起動を遅らせない。
+  initMobileAds();
   // Flutterのルーターが起動時にURLを書き換えるため、
   // クエリパラメータ(?q=会場名&r=3000&lat=..&lon=..&name=..)はここで先に読んでおく
   String? initialQuery;
