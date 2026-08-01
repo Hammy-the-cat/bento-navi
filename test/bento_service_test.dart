@@ -77,4 +77,46 @@ void main() {
     expect(shop.notes, contains('配達'));
     expect(shop.isCurated, isTrue);
   });
+
+  test('大分県の最新追加店舗を検索できる', () async {
+    final service = BentoService();
+    final shops = await service.searchCuratedShops(
+      33.541992,
+      131.570496,
+      radiusMeters: 3000,
+    );
+
+    final shop = shops.firstWhere((shop) => shop.name == 'まめのもんや');
+    expect(shop.phone, '090-7396-9339');
+    expect(shop.notes, contains('配達'));
+    expect(shop.isCurated, isTrue);
+  });
+
+  test('長崎県の店舗情報を検索できる', () async {
+    final service = BentoService();
+    final shops = await service.searchCuratedShops(
+      32.783558,
+      129.869370,
+      radiusMeters: 1000,
+    );
+
+    final shop = shops.firstWhere((shop) => shop.name == 'お弁当のぐ～');
+    expect(shop.phone, '095-844-7078');
+    expect(shop.notes, contains('配達'));
+    expect(shop.isCurated, isTrue);
+  });
+
+  test('佐賀県のInstagram追加店舗を検索できる', () async {
+    final service = BentoService();
+    final shops = await service.searchCuratedShops(
+      33.240166,
+      130.288803,
+      radiusMeters: 1000,
+    );
+
+    final shop = shops.firstWhere((shop) => shop.name == 'マハトマ');
+    expect(shop.phone, '0952-97-8533');
+    expect(shop.sourceUrl, contains('instagram.com/mahatma978533'));
+    expect(shop.isCurated, isTrue);
+  });
 }
