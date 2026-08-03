@@ -119,4 +119,19 @@ void main() {
     expect(shop.sourceUrl, contains('instagram.com/mahatma978533'));
     expect(shop.isCurated, isTrue);
   });
+
+  test('福岡県の店舗情報を電話・配達メモ付きで検索できる', () async {
+    final service = BentoService();
+    final shops = await service.searchCuratedShops(
+      33.556374,
+      130.464630,
+      radiusMeters: 1000,
+    );
+
+    final shop = shops.firstWhere((shop) => shop.name == 'はがくれ弁当 福岡本店');
+    expect(shop.phone, '092-502-8070');
+    expect(shop.notes, contains('配達'));
+    expect(shop.sourceUrl, 'https://hagakure-b.co.jp/area/');
+    expect(shop.isCurated, isTrue);
+  });
 }

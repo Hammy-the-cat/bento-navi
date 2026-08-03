@@ -5,24 +5,26 @@ import path from 'node:path';
 import process from 'node:process';
 import { execFileSync } from 'node:child_process';
 
-const REQUIRED_HEADERS = [
-  '店舗ID',
-  '店舗名',
-  'カテゴリ',
-  '市町村',
-  '住所',
-  '緯度',
-  '経度',
-  '電話番号',
-  '営業時間',
-  '定休日',
-  '予約・配達メモ',
-  '情報源URL',
-  '最終確認日',
-  '確認状態',
-  '座標精度',
-  '備考',
-];
+const HEADER_ALIASES = new Map([
+  ['店舗ID', ['店舗ID', 'id']],
+  ['店舗名', ['店舗名', 'name']],
+  ['カテゴリ', ['カテゴリ', 'category']],
+  ['市町村', ['市町村', 'municipality']],
+  ['住所', ['住所', 'address']],
+  ['緯度', ['緯度', 'latitude']],
+  ['経度', ['経度', 'longitude']],
+  ['電話番号', ['電話番号', 'phone']],
+  ['営業時間', ['営業時間', 'opening_hours']],
+  ['定休日', ['定休日', 'closed_days']],
+  ['予約・配達メモ', ['予約・配達メモ', 'delivery_notes']],
+  ['情報源URL', ['情報源URL', 'url']],
+  ['最終確認日', ['最終確認日', 'checked']],
+  ['確認状態', ['確認状態', 'status']],
+  ['座標精度', ['座標精度', 'coordinate_accuracy']],
+  ['備考', ['備考', 'note']],
+]);
+
+const REQUIRED_HEADERS = [...HEADER_ALIASES.keys()];
 
 const EXCLUDED_STATUSES = new Set(['閉店', '閉店予定']);
 
@@ -69,6 +71,18 @@ function value(row, indexes, header) {
   return (row[indexes.get(header)] ?? '').trim();
 }
 
+function resolveIndexes(headers) {
+  const rawIndexes = new Map(
+    headers.map((header, index) => [header.replace(/^\uFEFF/, '').trim(), index]),
+  );
+  const indexes = new Map();
+  for (const [canonical, aliases] of HEADER_ALIASES) {
+    const alias = aliases.find((candidate) => rawIndexes.has(candidate));
+    if (alias) indexes.set(canonical, rawIndexes.get(alias));
+  }
+  return indexes;
+}
+
 function combineNotes(memo, remarks) {
   return [memo, remarks].filter(Boolean).join(' ');
 }
@@ -107,7 +121,7 @@ function main() {
 
   const rows = parseCsv(fs.readFileSync(csvPath, 'utf8'));
   const headers = rows.shift() ?? [];
-  const indexes = new Map(headers.map((header, index) => [header, index]));
+  const indexes = resolveIndexes(headers);
   const missingHeaders = REQUIRED_HEADERS.filter((header) => !indexes.has(header));
   if (missingHeaders.length > 0) {
     throw new Error(`Missing CSV headers: ${missingHeaders.join(', ')}`);
