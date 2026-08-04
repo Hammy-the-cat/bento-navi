@@ -225,4 +225,61 @@ void main() {
       isTrue,
     );
   });
+
+  test('近畿地方のInstagram追加店舗を検索できる', () async {
+    final service = BentoService();
+
+    final mie = await service.searchCuratedShops(
+      34.581635,
+      136.621979,
+      radiusMeters: 500,
+    );
+    final hane = mie.firstWhere((shop) => shop.name == 'Hane');
+    expect(hane.phone, '070-2332-5289');
+    expect(hane.sourceUrl, contains('instagram.com/hane.38'));
+
+    final shiga = await service.searchCuratedShops(
+      35.194054,
+      136.294937,
+      radiusMeters: 500,
+    );
+    final ootaki = shiga.firstWhere((shop) => shop.name == 'おおたき給食弁当');
+    expect(ootaki.notes, contains('地域内配達あり'));
+
+    final kyoto = await service.searchCuratedShops(
+      34.780128,
+      135.788971,
+      radiusMeters: 500,
+    );
+    final okkamotto = kyoto.firstWhere((shop) => shop.name == 'おっかもっと');
+    expect(okkamotto.notes, contains('配達可'));
+
+    final osaka = await service.searchCuratedShops(
+      34.391262,
+      135.290619,
+      radiusMeters: 500,
+    );
+    final takesKitchen =
+        osaka.firstWhere((shop) => shop.name == "Take's kitchen");
+    expect(takesKitchen.phone, '080-1502-2840');
+
+    final nara = await service.searchCuratedShops(
+      34.241943,
+      135.855270,
+      radiusMeters: 500,
+    );
+    expect(
+      nara.any((shop) => shop.name == 'おむすび＆Cafe 喫茶みつば'),
+      isTrue,
+    );
+
+    final wakayama = await service.searchCuratedShops(
+      33.958530,
+      135.937027,
+      radiusMeters: 500,
+    );
+    final gotencho = wakayama.firstWhere((shop) => shop.name == 'ごてんちょキッチン');
+    expect(gotencho.notes, contains('予約制'));
+    expect(gotencho.isCurated, isTrue);
+  });
 }
