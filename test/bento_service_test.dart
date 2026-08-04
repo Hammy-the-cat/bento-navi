@@ -282,4 +282,60 @@ void main() {
     expect(gotencho.notes, contains('予約制'));
     expect(gotencho.isCurated, isTrue);
   });
+
+  test('東北6県の追加店舗を検索できる', () async {
+    final service = BentoService();
+    final cases = <Map<String, Object>>[
+      {
+        'name': '間木ノ平グリーンパーク',
+        'lat': 40.453327,
+        'lon': 141.112885,
+        'phone': '0178-78-3333',
+      },
+      {
+        'name': '鯛寿司',
+        'lat': 39.930553,
+        'lon': 141.917175,
+        'phone': '0194-34-2702',
+      },
+      {
+        'name': 'Cafe Bridge',
+        'lat': 38.468071,
+        'lon': 140.852112,
+        'phone': '022-342-1677',
+      },
+      {
+        'name': '井川さくらキッチン',
+        'lat': 39.908676,
+        'lon': 140.087769,
+        'phone': '018-855-6170',
+      },
+      {
+        'name': 'お惣菜とお食事の店 ヤマキチ',
+        'lat': 38.294468,
+        'lon': 140.269531,
+        'phone': '023-664-5620',
+      },
+      {
+        'name': 'レストラン エフ',
+        'lat': 37.458084,
+        'lon': 141.030746,
+        'phone': '080-5842-2640',
+      },
+    ];
+
+    for (final testCase in cases) {
+      final shops = await service.searchCuratedShops(
+        testCase['lat']! as double,
+        testCase['lon']! as double,
+        radiusMeters: 300,
+      );
+      final shop = shops.firstWhere(
+        (candidate) => candidate.name == testCase['name'],
+      );
+      expect(shop.phone, testCase['phone']);
+      expect(shop.sourceUrl, isNotEmpty);
+      expect(shop.isCurated, isTrue);
+    }
+  });
 }
