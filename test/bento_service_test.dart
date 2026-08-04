@@ -338,4 +338,78 @@ void main() {
       expect(shop.isCurated, isTrue);
     }
   });
+
+  test('中部9県の追加店舗を検索できる', () async {
+    final service = BentoService();
+    final cases = <Map<String, Object>>[
+      {
+        'name': 'しげよし町田本店',
+        'lat': 37.952557,
+        'lon': 139.241013,
+        'phone': '050-3196-5088',
+      },
+      {
+        'name': 'お※食堂',
+        'lat': 36.705845,
+        'lon': 137.306183,
+        'phone': '076-464-5272',
+      },
+      {
+        'name': '食べ処オアシス',
+        'lat': 36.469639,
+        'lon': 136.541122,
+        'phone': '076-277-0065',
+      },
+      {
+        'name': 'まちの駅 こってコテいけだ',
+        'lat': 35.887623,
+        'lon': 136.345261,
+        'phone': '0778-44-8050',
+      },
+      {
+        'name': '宅配弁当 円',
+        'lat': 35.600006,
+        'lon': 138.521927,
+        'phone': '055-274-3991',
+      },
+      {
+        'name': 'レストラン ストローハット',
+        'lat': 35.993179,
+        'lon': 138.442673,
+        'phone': '0267-96-2445',
+      },
+      {
+        'name': '日本料理 郷部',
+        'lat': 35.433296,
+        'lon': 136.987595,
+        'phone': '0574-26-8286',
+      },
+      {
+        'name': 'さくらの宿 一膳',
+        'lat': 34.771152,
+        'lon': 138.960876,
+        'phone': '0558-36-3606',
+      },
+      {
+        'name': 'レストラン山河',
+        'lat': 35.099102,
+        'lon': 137.572281,
+        'phone': '0536-62-2132',
+      },
+    ];
+
+    for (final testCase in cases) {
+      final shops = await service.searchCuratedShops(
+        testCase['lat']! as double,
+        testCase['lon']! as double,
+        radiusMeters: 300,
+      );
+      final shop = shops.firstWhere(
+        (candidate) => candidate.name == testCase['name'],
+      );
+      expect(shop.phone, testCase['phone']);
+      expect(shop.sourceUrl, isNotEmpty);
+      expect(shop.isCurated, isTrue);
+    }
+  });
 }
