@@ -171,9 +171,58 @@ void main() {
       133.286713,
       radiusMeters: 500,
     );
-    final yorimichi =
-        kochi.firstWhere((shop) => shop.name == 'よりみちキッチン');
+    final yorimichi = kochi.firstWhere((shop) => shop.name == 'よりみちキッチン');
     expect(yorimichi.sourceUrl, contains('instagram.com/yorimichi_kitchen'));
     expect(yorimichi.isCurated, isTrue);
+  });
+
+  test('中国地方5県の追加店舗を検索できる', () async {
+    final service = BentoService();
+
+    final tottori = await service.searchCuratedShops(
+      35.553734,
+      134.363235,
+      radiusMeters: 500,
+    );
+    final ogura = tottori.firstWhere((shop) => shop.name == '仕出し弁当 おぐら');
+    expect(ogura.phone, '0857-73-0308');
+    expect(ogura.notes, contains('配達対応'));
+
+    final shimane = await service.searchCuratedShops(
+      36.096966,
+      133.109116,
+      radiusMeters: 500,
+    );
+    final uchiNoGohan = shimane.firstWhere((shop) => shop.name == 'うちのごはん');
+    expect(uchiNoGohan.sourceUrl, contains('ama-town.note.jp'));
+
+    final okayama = await service.searchCuratedShops(
+      34.958153,
+      133.875092,
+      radiusMeters: 500,
+    );
+    final chezNous =
+        okayama.firstWhere((shop) => shop.name == 'CHEZ NOUS（シェヌー）');
+    expect(chezNous.phone, '070-4295-4778');
+
+    final hiroshima = await service.searchCuratedShops(
+      34.365327,
+      132.362680,
+      radiusMeters: 500,
+    );
+    expect(
+      hiroshima.any((shop) => shop.name == 'ほっともっと 佐伯区役所前店'),
+      isTrue,
+    );
+
+    final yamaguchi = await service.searchCuratedShops(
+      33.978559,
+      130.941833,
+      radiusMeters: 500,
+    );
+    expect(
+      yamaguchi.any((shop) => shop.name == 'ほっともっと 下関宝町店'),
+      isTrue,
+    );
   });
 }
