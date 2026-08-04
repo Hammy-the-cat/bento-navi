@@ -134,4 +134,46 @@ void main() {
     expect(shop.sourceUrl, 'https://hagakure-b.co.jp/area/');
     expect(shop.isCurated, isTrue);
   });
+
+  test('四国4県のInstagram追加店舗を検索できる', () async {
+    final service = BentoService();
+
+    final tokushima = await service.searchCuratedShops(
+      34.047276,
+      134.575150,
+      radiusMeters: 500,
+    );
+    final lakiBento =
+        tokushima.firstWhere((shop) => shop.name == 'lakiBENTO（ラキ弁当）');
+    expect(lakiBento.phone, '088-635-1913');
+    expect(lakiBento.sourceUrl, contains('instagram.com/lakibento'));
+
+    final kagawa = await service.searchCuratedShops(
+      34.143593,
+      133.692917,
+      radiusMeters: 500,
+    );
+    final muku = kagawa.firstWhere((shop) => shop.name == 'むく食堂');
+    expect(muku.phone, '070-1226-1151');
+    expect(muku.notes, contains('事前予約'));
+
+    final ehime = await service.searchCuratedShops(
+      33.918674,
+      133.166107,
+      radiusMeters: 500,
+    );
+    final nabento = ehime.firstWhere((shop) => shop.name == 'nabento');
+    expect(nabento.notes, contains('5個以上で配達'));
+    expect(nabento.sourceUrl, contains('instagram.com/_nabento'));
+
+    final kochi = await service.searchCuratedShops(
+      33.500835,
+      133.286713,
+      radiusMeters: 500,
+    );
+    final yorimichi =
+        kochi.firstWhere((shop) => shop.name == 'よりみちキッチン');
+    expect(yorimichi.sourceUrl, contains('instagram.com/yorimichi_kitchen'));
+    expect(yorimichi.isCurated, isTrue);
+  });
 }

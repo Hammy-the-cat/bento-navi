@@ -191,13 +191,17 @@ function main() {
   }
 
   if (mergeExisting) {
-    const importedIds = new Set(shops.map((shop) => shop.id));
-    for (const shop of existing) {
-      if (!importedIds.has(shop.id)) shops.push(shop);
+    const importedById = new Map(shops.map((shop) => [shop.id, shop]));
+    const existingIds = new Set(existing.map((shop) => shop.id));
+    const merged = existing.map((shop) => importedById.get(shop.id) ?? shop);
+    for (const shop of shops) {
+      if (!existingIds.has(shop.id)) merged.push(shop);
     }
+    shops.length = 0;
+    shops.push(...merged);
+  } else {
+    shops.sort((a, b) => a.id.localeCompare(b.id, 'ja'));
   }
-
-  shops.sort((a, b) => a.id.localeCompare(b.id, 'ja'));
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(shops, null, 2)}\n`, 'utf8');
 
