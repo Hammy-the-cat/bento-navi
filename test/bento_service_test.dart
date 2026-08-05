@@ -456,4 +456,48 @@ void main() {
       expect(shop.isCurated, isTrue);
     }
   });
+
+  test('北海道のInstagram追加店舗を検索できる', () async {
+    final service = BentoService();
+    final cases = <Map<String, Object>>[
+      {
+        'name': '将真 -SHOMA-',
+        'lat': 43.766857,
+        'lon': 142.376633,
+        'phone': '080-6066-7013',
+      },
+      {
+        'name': 'JONNY TOO BAD',
+        'lat': 41.803185,
+        'lon': 140.758713,
+        'phone': '050-8883-8404',
+      },
+      {
+        'name': 'ケンヤシ食堂',
+        'lat': 42.911953,
+        'lon': 143.060333,
+        'phone': '080-3239-8463',
+      },
+      {
+        'name': '中央食堂',
+        'lat': 45.412464,
+        'lon': 141.674194,
+        'phone': '0162-73-0096',
+      },
+    ];
+
+    for (final testCase in cases) {
+      final shops = await service.searchCuratedShops(
+        testCase['lat']! as double,
+        testCase['lon']! as double,
+        radiusMeters: 300,
+      );
+      final shop = shops.firstWhere(
+        (candidate) => candidate.name == testCase['name'],
+      );
+      expect(shop.phone, testCase['phone']);
+      expect(shop.sourceUrl, isNotEmpty);
+      expect(shop.isCurated, isTrue);
+    }
+  });
 }
