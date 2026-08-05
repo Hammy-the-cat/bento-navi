@@ -339,6 +339,62 @@ void main() {
     }
   });
 
+  test('東北6県のInstagram追加店舗を検索できる', () async {
+    final service = BentoService();
+    final cases = <Map<String, Object>>[
+      {
+        'name': 'お弁当とひと呑み Meal',
+        'lat': 40.813637,
+        'lon': 140.721802,
+        'phone': '017-772-2669',
+      },
+      {
+        'name': 'ふるさとランド',
+        'lat': 39.675919,
+        'lon': 141.165970,
+        'phone': '019-601-5580',
+      },
+      {
+        'name': 'SMILE MARKET',
+        'lat': 38.439754,
+        'lon': 141.303482,
+        'phone': '090-7793-0945',
+      },
+      {
+        'name': 'テイクアウト専門店 Lino',
+        'lat': 39.697105,
+        'lon': 140.131561,
+        'phone': '070-2494-8787',
+      },
+      {
+        'name': 'kitchen-菜縁',
+        'lat': 38.300423,
+        'lon': 140.299271,
+        'phone': '080-6009-6270',
+      },
+      {
+        'name': '食彩工房 琴',
+        'lat': 37.400440,
+        'lon': 140.359634,
+        'phone': '070-4817-1216',
+      },
+    ];
+
+    for (final testCase in cases) {
+      final shops = await service.searchCuratedShops(
+        testCase['lat']! as double,
+        testCase['lon']! as double,
+        radiusMeters: 300,
+      );
+      final shop = shops.firstWhere(
+        (candidate) => candidate.name == testCase['name'],
+      );
+      expect(shop.phone, testCase['phone']);
+      expect(shop.sourceUrl, isNotEmpty);
+      expect(shop.isCurated, isTrue);
+    }
+  });
+
   test('中部9県の追加店舗を検索できる', () async {
     final service = BentoService();
     final cases = <Map<String, Object>>[
