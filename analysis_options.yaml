@@ -9,6 +9,14 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  # ビルド生成物は解析対象から除外する。
+  # iOSビルド時に build/ios/SourcePackages/ へ依存パッケージ(google_mobile_ads等)の
+  # ソースとテストが展開され、それらのエラーで flutter analyze が失敗するため。
+  exclude:
+    - build/**
+    - ios/Pods/**
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

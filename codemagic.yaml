@@ -41,14 +41,17 @@ workflows:
       - name: Flutterパッケージを取得
         script: flutter pub get
 
-      - name: CocoaPodsを取得
-        script: find . -name "Podfile" -execdir pod install \;
-
+      # 解析・テストはCocoaPods取得より前に実行する。
+      # pod install後は build/ に依存パッケージのソースが展開され、
+      # それらのエラーで flutter analyze が失敗するため。
       - name: 静的解析
         script: flutter analyze
 
       - name: テスト
         script: flutter test
+
+      - name: CocoaPodsを取得
+        script: find . -name "Podfile" -execdir pod install \;
 
       - name: 署名ファイルを取得(無ければ作成)
         script: |
