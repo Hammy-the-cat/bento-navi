@@ -37,6 +37,10 @@ workflows:
       cocoapods: default
       vars:
         BUNDLE_ID: "com.bentonavi.app"
+      # Codemagicの画面(Environment variables)で登録した変数グループ。
+      # グループ「appstore」に CERTIFICATE_PRIVATE_KEY を入れておくこと。
+      groups:
+        - appstore
       # ※ ios_signing(自動署名)は使わない。
       #   自動署名は「既存のプロファイルを探す」動作のため、
       #   初回のようにプロファイル未作成だと失敗する。
