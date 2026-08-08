@@ -10,7 +10,7 @@
 #      そのAPIキーを登録し、名前を「bento-navi-asc」にする
 #      (別の名前にした場合は、下の app_store_connect: の値を合わせて変更)
 #   5. App Store Connect でアプリを新規作成し、Bundle IDに
-#      com.hammythecat.bentoNavi を指定
+#      com.bentonavi.app を指定
 #
 # ■ ビルドの流れ
 #   Codemagicがクラウド上のMacで ビルド → 署名 → TestFlightへアップロード
@@ -33,7 +33,7 @@ workflows:
       ios_signing:
         # 証明書・プロビジョニングプロファイルはCodemagicが自動生成する
         distribution_type: app_store
-        bundle_identifier: com.hammythecat.bentoNavi
+        bundle_identifier: com.bentonavi.app
 
     scripts:
       - name: Flutterパッケージを取得
