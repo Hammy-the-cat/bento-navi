@@ -30,10 +30,12 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      ios_signing:
-        # 証明書・プロビジョニングプロファイルはCodemagicが自動生成する
-        distribution_type: app_store
-        bundle_identifier: com.bentonavi.app
+      vars:
+        BUNDLE_ID: "com.bentonavi.app"
+      # ※ ios_signing(自動署名)は使わない。
+      #   自動署名は「既存のプロファイルを探す」動作のため、
+      #   初回のようにプロファイル未作成だと失敗する。
+      #   下の fetch-signing-files --create で「無ければ作る」方式にしている。
 
     scripts:
       - name: Flutterパッケージを取得
@@ -47,6 +49,19 @@ workflows:
 
       - name: テスト
         script: flutter test
+
+      - name: 署名ファイルを取得(無ければ作成)
+        script: |
+          # 配布用証明書とプロビジョニングプロファイルを
+          # App Store Connect API経由で取得。存在しなければ新規作成する。
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+
+      - name: 証明書をキーチェーンに登録
+        script: |
+          keychain initialize
+          keychain add-certificates
 
       - name: 署名プロファイルを適用
         script: xcode-project use-profiles
