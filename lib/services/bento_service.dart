@@ -24,10 +24,14 @@ class BentoService {
 
   /// Overpassは混雑時に504を返したり無応答になったりするため、
   /// 複数のミラーをタイムアウト付きで順に試す
+  /// Overpassのミラー。応答が速い順に試す。
+  /// (2026-08実測: osm.ch 1.9秒 / mail.ru 1.8秒 / overpass-api.de 2.8秒)
+  /// overpass.kumi.systems は無応答になることがあり、待ち時間の原因になるため除外。
+  /// overpass-api.de は混雑時に504を返しやすいので最後に置く。
   static const _overpassEndpoints = [
-    'https://overpass-api.de/api/interpreter',
+    'https://overpass.osm.ch/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass-api.de/api/interpreter',
   ];
 
   List<Map<String, dynamic>>? _curatedCache;
@@ -192,7 +196,9 @@ out center tags 100;
     // 短時間試す。応答がなくても固定データをすぐ返せるようにする。
     final endpoints =
         curated.isEmpty ? _overpassEndpoints : _overpassEndpoints.take(1);
-    final timeout = Duration(seconds: curated.isEmpty ? 20 : 5);
+    // 1系統あたりの待ち時間。実測では2〜3秒で応答するため12秒あれば十分で、
+    // 全滅しても最大36秒で打ち切れる(以前は20秒×3=最大60秒待たされていた)。
+    final timeout = Duration(seconds: curated.isEmpty ? 12 : 5);
     for (final endpoint in endpoints) {
       try {
         final r = await http.post(
@@ -214,7 +220,11 @@ out center tags 100;
     }
     if (res == null) {
       if (curated.isNotEmpty) return curated;
-      throw Exception('周辺の店舗検索に失敗しました ($lastError)。少し待って再試行してください。');
+      final isTimeout = lastError is TimeoutException;
+      throw Exception(isTimeout
+          ? '店舗情報サーバーの応答がありませんでした。'
+            '電波の良い場所で、しばらく待ってからもう一度お試しください。'
+          : '周辺の店舗検索に失敗しました ($lastError)。少し待って再試行してください。');
     }
     final json = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
     final elements = (json['elements'] as List<dynamic>?) ?? [];
