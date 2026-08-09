@@ -1,10 +1,21 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../models/shop.dart';
+
+/// Nominatimの利用規約では、アプリを識別できるUser-Agentが必須。
+/// ライブラリ既定のUser-Agent(Dart/x.y (dart:io))は403で拒否されるため、
+/// iOS/Androidのネイティブビルドでは必ずこれを送る。
+/// ※Webではブラウザが自動で付与し、User-Agentの上書きも禁止されているため送らない。
+const _userAgent =
+    'BentoNavi/1.0 (https://hammy-the-cat.github.io/bento-navi/; excitedcherry0909@gmail.com)';
+
+Map<String, String> get _apiHeaders =>
+    kIsWeb ? const {} : const {'User-Agent': _userAgent};
 
 /// OpenStreetMap (Nominatim + Overpass) を使った検索サービス。
 /// APIキー不要で利用できる。
@@ -119,7 +130,7 @@ class BentoService {
         'accept-language': 'ja',
       },
     );
-    final res = await http.get(uri);
+    final res = await http.get(uri, headers: _apiHeaders);
     if (res.statusCode != 200) {
       throw Exception('場所の検索に失敗しました (HTTP ${res.statusCode})');
     }
@@ -186,7 +197,10 @@ out center tags 100;
       try {
         final r = await http.post(
           Uri.parse(endpoint),
-          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            ..._apiHeaders,
+          },
           body: {'data': query},
         ).timeout(timeout);
         if (r.statusCode == 200) {
