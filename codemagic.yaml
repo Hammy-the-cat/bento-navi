@@ -102,8 +102,11 @@ workflows:
           failure: true
       app_store_connect:
         auth: integration
-        # TestFlight(内部テスト)へ自動アップロード。
-        # 実際の審査提出は App Store Connect の画面から手動で行う。
-        submit_to_testflight: true
+        # ビルドはApp Store Connectへアップロードされ、内部テスト(審査不要)で
+        # すぐに使える。submit_to_testflightは「外部テストの審査提出」を指し、
+        # フィードバック用メールなどのテスト情報が必須になるためfalseにしている。
+        # 外部テスターへ配布したくなったら、App Store Connectの
+        # TestFlight→テスト情報 を入力したうえでtrueに戻す。
+        submit_to_testflight: false
         # 審査へ自動提出したい場合は下をtrueにする(慣れるまではfalse推奨)
         submit_to_app_store: false
