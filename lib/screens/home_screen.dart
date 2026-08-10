@@ -1338,8 +1338,11 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _siteBaseUrl = 'https://hammy-the-cat.github.io/bento-navi/';
 
   Future<void> _openPage(String page) async {
-    final uri =
-        kIsWeb ? Uri.base.resolve(page) : Uri.parse('$_siteBaseUrl$page');
+    // ネイティブからは ?app=1 を付ける。ページ側(app-view.js)がこれを見て
+    // 「アプリを開く」等のWeb版へのリンクを隠し、戻り方を案内する。
+    final uri = kIsWeb
+        ? Uri.base.resolve(page)
+        : Uri.parse('$_siteBaseUrl$page?app=1');
     var opened = false;
     try {
       // アプリ内ブラウザで開く(アプリから離脱させない)
