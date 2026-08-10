@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -1331,11 +1332,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── フッターリンク ──────────────────────────
+  /// 記事などの静的ページの公開先。
+  /// Webでは同じサイト内にあるため相対解決でよいが、ネイティブでは
+  /// Uri.base が端末内のパス(file://)を指すため絶対URLが必要。
+  static const _siteBaseUrl = 'https://hammy-the-cat.github.io/bento-navi/';
+
   Future<void> _openPage(String page) async {
+    final uri =
+        kIsWeb ? Uri.base.resolve(page) : Uri.parse('$_siteBaseUrl$page');
+    var opened = false;
     try {
-      await launchUrl(Uri.base.resolve(page), mode: LaunchMode.platformDefault);
+      // アプリ内ブラウザで開く(アプリから離脱させない)
+      opened = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      if (!opened) {
+        opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
     } catch (_) {
-      // Web以外や解決失敗時は何もしない
+      opened = false;
+    }
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('ページを開けませんでした（$uri）'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
