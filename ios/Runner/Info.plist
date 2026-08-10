@@ -33,19 +33,10 @@
 	     Appleの要求により説明文の記載が必要(警告90683への対応) -->
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>アプリの利用中に、現在地の周辺でお弁当が買えるお店を検索するために使用します。バックグラウンドで位置情報を取得することはありません。</string>
-	<!-- 広告(AdMob)のアプリID。現在はGoogle公式のテスト用ID。
-	     AdMobでアプリを登録したら、発行された実IDに差し替えること。
-	     ※このキーが無いと起動時にクラッシュするため必須 -->
-	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
-	<!-- 広告計測用。必要に応じてAdMob公式のリストを追記できる -->
-	<key>SKAdNetworkItems</key>
-	<array>
-		<dict>
-			<key>SKAdNetworkIdentifier</key>
-			<string>cstr6suwn9.skadnetwork</string>
-		</dict>
-	</array>
+	<!-- 広告(AdMob)のキーはv1.0では入れていない。
+	     アプリ版に広告を載せるときは GADApplicationIdentifier と
+	     SKAdNetworkItems をここに戻し、あわせてApp Store Connectの
+	     プライバシー申告も更新すること。詳細は docs/appstore_privacy.md -->
 	<!-- 輸出コンプライアンス: 標準的な暗号化(HTTPS)のみ使用。
 	     これを入れておくと提出のたびに聞かれる質問を省略できる -->
 	<key>ITSAppUsesNonExemptEncryption</key>

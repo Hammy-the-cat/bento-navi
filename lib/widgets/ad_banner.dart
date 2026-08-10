@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import '../config/ad_config.dart';
 import 'adsense_view_stub.dart'
     if (dart.library.js_interop) 'adsense_view_web.dart';
-import 'mobile_ads_stub.dart' if (dart.library.io) 'mobile_ads_impl.dart';
 
 /// 広告バナー。
 /// - Web        : AdSense(スロット未設定の間はプレースホルダー)
-/// - iOS/Android: AdMob
-/// - それ以外    : プレースホルダー
+/// - アプリ版    : 何も表示しない(v1.0では広告を載せていないため、
+///                空の枠だけが残らないようウィジェットごと消す)
 class AdBanner extends StatelessWidget {
   final String slot;
   final double height;
@@ -18,6 +17,9 @@ class AdBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // アプリ版(iOS/Android)は広告なし。枠も出さない。
+    if (!kIsWeb) return const SizedBox.shrink();
+
     final theme = Theme.of(context);
     return Container(
       height: height,
@@ -56,15 +58,11 @@ class AdBanner extends StatelessWidget {
     );
   }
 
-  /// プラットフォームに応じて表示する広告を選ぶ
+  /// Web版の広告。スロット未作成の間はプレースホルダー
   Widget _adContent(ThemeData theme) {
-    if (kIsWeb) {
-      return AdConfig.adsenseEnabled
-          ? buildAdsenseView(AdConfig.adsenseClient, slot, height)
-          : _placeholder(theme);
-    }
-    // モバイルはAdMob。非対応環境(デスクトップ等)ではnullが返る
-    return buildAdmobBanner(height) ?? _placeholder(theme);
+    return AdConfig.adsenseEnabled
+        ? buildAdsenseView(AdConfig.adsenseClient, slot, height)
+        : _placeholder(theme);
   }
 
   Widget _placeholder(ThemeData theme) {

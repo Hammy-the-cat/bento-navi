@@ -42,7 +42,8 @@ dependencies:
   shared_preferences: ^2.5.0
   latlong2: ^0.9.0
   web: ^1.1.0
-  google_mobile_ads: ^9.0.0
+  # 注: アプリ版の広告(google_mobile_ads)はv1.0では載せていない。
+  # 理由と再導入の手順は docs/appstore_privacy.md を参照。
 
 dev_dependencies:
   flutter_test:
