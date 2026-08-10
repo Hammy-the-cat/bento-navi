@@ -24,14 +24,20 @@ class BentoService {
 
   /// Overpassは混雑時に504を返したり無応答になったりするため、
   /// 複数のミラーをタイムアウト付きで順に試す
-  /// Overpassのミラー。応答が速い順に試す。
-  /// (2026-08実測: osm.ch 1.9秒 / mail.ru 1.8秒 / overpass-api.de 2.8秒)
-  /// overpass.kumi.systems は無応答になることがあり、待ち時間の原因になるため除外。
-  /// overpass-api.de は混雑時に504を返しやすいので最後に置く。
+  /// Overpassのミラー。
+  ///
+  /// 【重要】ミラーを追加・変更するときは、必ず**日本の実データが返るか**を
+  /// 件数で確認すること。HTTPステータスと応答速度だけで判断してはいけない。
+  /// 例: overpass.osm.ch はスイス限定のデータしか持たず、日本の座標では
+  ///     「200 OK かつ 0件」を高速に返すため、速い優良ミラーに見えてしまう。
+  ///
+  /// 2026-08-08 実測(東京駅周辺1km・要素数):
+  ///   overpass-api.de 100件/5.8秒 / kumi.systems 100件/8.1秒 /
+  ///   maps.mail.ru 100件/10.0秒 / osm.ch 0件(日本のデータなし・不採用)
   static const _overpassEndpoints = [
-    'https://overpass.osm.ch/api/interpreter',
-    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
     'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   ];
 
   List<Map<String, dynamic>>? _curatedCache;
@@ -167,6 +173,18 @@ class BentoService {
     return ranked;
   }
 
+  /// Overpassの応答に要素が1件でも含まれるか。
+  /// 解析に失敗した場合は「中身あり」とみなさない。
+  static bool _hasElements(http.Response r) {
+    try {
+      final json = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      final elements = json['elements'] as List<dynamic>?;
+      return elements != null && elements.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 指定地点の周辺で弁当が買える店を検索する
   Future<List<Shop>> searchShops(
     double lat,
@@ -179,26 +197,36 @@ class BentoService {
       radiusMeters: radiusMeters,
     );
     // 地元の弁当屋はOSM上でジャンルタグがなく店名だけのことが多いため、
-    // タグ検索に加えて店名の正規表現でも拾う
+    // タグ検索に加えて店名の正規表現でも拾う。
+    //
+    // ※ ["shop"]["name"~...] のようにキーで絞ってから店名照合する形も試したが、
+    //   都心部は shop キーを持つ要素自体が膨大なため逆に遅くなった
+    //   (東京駅1km: 29秒 → 40秒超でタイムアウト)。この形が最善。
+    const nameRe = '弁当|べんとう|ほか弁|ほっともっと|かまどや|オリジン|惣菜|仕出し';
+    final around = 'around:$radiusMeters,$lat,$lon';
     final query = '''
 [out:json][timeout:25];
 (
-  nwr["shop"~"^(convenience|supermarket|deli|bakery)\$"](around:$radiusMeters,$lat,$lon);
-  nwr["amenity"="fast_food"](around:$radiusMeters,$lat,$lon);
-  nwr["name"~"弁当|べんとう|ほか弁|ほっともっと|かまどや|オリジン|惣菜|仕出し"](around:$radiusMeters,$lat,$lon);
-  nwr["amenity"="restaurant"]["takeaway"~"^(yes|only)\$"](around:$radiusMeters,$lat,$lon);
+  nwr["shop"~"^(convenience|supermarket|deli|bakery)\$"]($around);
+  nwr["amenity"="fast_food"]($around);
+  nwr["name"~"$nameRe"]($around);
+  nwr["amenity"="restaurant"]["takeaway"~"^(yes|only)\$"]($around);
 );
 out center tags 100;
 ''';
     http.Response? res;
+    // 200を返したが0件だった応答。ミラーが該当地域のデータを持っていない
+    // 場合にこうなるため、すぐ採用せず次のミラーを試す。
+    // (全ミラーが0件なら「本当に周辺に店が無い」と判断してこれを使う)
+    http.Response? emptyRes;
     Object? lastError;
     // 調査済み店舗がある地域では、OSMは補完用途として最初の1系統だけを
     // 短時間試す。応答がなくても固定データをすぐ返せるようにする。
     final endpoints =
         curated.isEmpty ? _overpassEndpoints : _overpassEndpoints.take(1);
-    // 1系統あたりの待ち時間。実測では2〜3秒で応答するため12秒あれば十分で、
-    // 全滅しても最大36秒で打ち切れる(以前は20秒×3=最大60秒待たされていた)。
-    final timeout = Duration(seconds: curated.isEmpty ? 12 : 5);
+    // 1系統あたりの待ち時間。公共のOverpassは混雑時に10秒以上かかることが
+    // あるため20秒を確保する(短すぎると都市部で誤って失敗扱いになる)。
+    final timeout = Duration(seconds: curated.isEmpty ? 20 : 5);
     for (final endpoint in endpoints) {
       try {
         final r = await http.post(
@@ -210,14 +238,20 @@ out center tags 100;
           body: {'data': query},
         ).timeout(timeout);
         if (r.statusCode == 200) {
-          res = r;
-          break;
+          if (_hasElements(r)) {
+            res = r;
+            break;
+          }
+          // 0件はミラー側のデータ欠落の可能性がある → 次を試す
+          emptyRes ??= r;
+          continue;
         }
         lastError = Exception('HTTP ${r.statusCode}');
       } catch (e) {
         lastError = e;
       }
     }
+    res ??= emptyRes;
     if (res == null) {
       if (curated.isNotEmpty) return curated;
       final isTimeout = lastError is TimeoutException;
