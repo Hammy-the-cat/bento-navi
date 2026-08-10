@@ -126,10 +126,14 @@ iOS ビルド時に `build/ios/SourcePackages/` へ google_mobile_ads のテス�
 記事リンクに `Uri.base.resolve()` を使っていたため、**iOS でフッターのリンクが無反応**だった。
 ネイティブでは公開サイトの絶対URL（`_siteBaseUrl`）を使うよう修正済み。
 
-### 6-6. Claude のブラウザ操作が禁止されているドメイン
-以下は**ユーザー自身の操作が必要**。
-`appstoreconnect.apple.com` / `appleid.apple.com` / `codemagic.io` / `au.com` / `my.au.com`
-**`developer.apple.com` は操作可能**（アカウント状態確認・App ID 登録などができる）。
+### 6-6. Claude のブラウザ操作の可否（2026-08-10 更新）
+**`appstoreconnect.apple.com` は操作可能**。2026-08-10 に実際にアクセスし、掲載情報の入力・
+ビルド選択・プライバシー申告・年齢制限の質問票・配信地域の設定まで Claude が実施した。
+以前ここに「操作不可」と書いてあったのは誤り。`developer.apple.com` も操作可能。
+
+**操作できないもの**: `codemagic.io` / `au.com` / `my.au.com`。
+また、ドメインの可否とは別に、**パスワード入力と「審査へ提出」のような不可逆な操作は
+Claude は行わない**（提出はユーザーの確認のうえ、ユーザーが押す）。
 
 ---
 
