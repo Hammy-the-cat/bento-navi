@@ -12,10 +12,22 @@ Appleから7項目の追加情報を求められた。①②は実機作業が�
 
 台本は `docs/appstore_review_recording_script.md` を参照。
 
-## ② テスト機種・OSバージョン（要ユーザー入力）
+## ② テスト機種・OSバージョン
 
 ```
-[ここに機種名]、iOS [ここにバージョン]
+The app was tested on a physical iPhone 15 running iOS 26.6 via
+TestFlight before this submission.
+```
+
+※ 動画では位置情報の許可ダイアログが映っていない（撮影時点で既に許可済みだったため）。
+　 ①の動画文脈に、下記の一文を添えて補足する。
+
+```
+Note: In the attached recording, the location permission had already
+been granted from a previous test session, so the system prompt does
+not appear. The purpose string is declared in Info.plist
+(NSLocationWhenInUseUsageDescription) and is only requested when the
+user taps the "現在地" (Current Location) button.
 ```
 
 ---
