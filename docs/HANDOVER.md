@@ -181,8 +181,12 @@ flutter analyze
 flutter test
 
 # Web版のビルドとデプロイ（gh-pages へ force push）
-flutter build web --release --base-href /bento-navi/
-cd build/web && touch .nojekyll && git init -q && git checkout -q -b gh-pages \
+# ⚠️ 2026-08-19から独自ドメイン bento.hammythecat.com で公開。
+#    --base-href は「/」、CNAMEファイルの作成を忘れないこと（忘れると独自ドメインが外れる）。
+#    Git Bashは「/」をパス変換するのでPowerShellで実行する。
+flutter build web --release --base-href /
+cd build/web && touch .nojekyll && echo "bento.hammythecat.com" > CNAME \
+  && git init -q && git checkout -q -b gh-pages \
   && git add -A && git commit -q -m "deploy" \
   && git push -f https://github.com/Hammy-the-cat/bento-navi.git gh-pages && rm -rf .git
 
