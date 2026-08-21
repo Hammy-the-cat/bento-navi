@@ -213,3 +213,37 @@ python tool/check_listing.py
     焼き込まれているため、直すには再ビルド＋再審査が必須。
     **v1.0はこのまま公開し、Cloudflare Workersキャッシュはv1.1で対応する方針に決定。**
     却下案: 公開を止めて先に対応（審査サイクルがもう一周発生し、公開がさらに遅れるため）。
+
+### v1.1: Overpassキャッシュプロキシ実装済み（2026-08-21）
+
+- **Worker本体**: `workers/overpass-proxy/`（`wrangler.toml` + `src/index.js`）。
+  `bento_service.dart` の `_overpassEndpoints`/ミラー順/「0件は次のミラー」判定を
+  そのままエッジ側に移植し、Cache API (`caches.default`) で6時間キャッシュする。
+- **本番URL**: `https://bento-navi-overpass-proxy.excitedcherry0909.workers.dev/`
+  （workers.devサブドメイン。カスタムドメインのDNS設定は不要にするため意図的にこれを採用）
+- **デプロイ方法**: `cd workers/overpass-proxy && npx wrangler deploy`
+  （ログイン済みのため `wrangler login` は不要。アカウント: excitedcherry0909@gmail.com）
+- **踏んだ落とし穴**: キャッシュ本体（`cache.put` する `Response`）にCORSヘッダーを
+  付け忘れると、初回(MISS)は動くのに2回目以降(HIT)だけブラウザ側で
+  CORSエラーになる。キャッシュキーに `-v2` を付けて無効化して修正済み。
+  今後もキャッシュ本体のヘッダーを変更したら、キーのバージョンを上げて
+  既存キャッシュを無効化すること。
+- **アプリ側の変更**: `lib/services/bento_service.dart` の `searchShops()` が
+  まずこのWorkerへGETリクエスト（`?lat=&lon=&radius=`）を送り、失敗時のみ
+  従来の直接ミラー呼び出しにフォールバックする（Workerの障害でアプリが
+  止まることはない）。
+- **確認済み**: ローカル(`wrangler dev`)・本番デプロイ後の両方でMISS→HITの
+  キャッシュ動作、CORS越しの実オリジン(`bento.hammythecat.com`)からのfetch成功、
+  `flutter analyze` エラーなしを確認済み。Web版は `bento.hammythecat.com` に
+  デプロイ済み（2026-08-21）。
+- **残作業**: `pubspec.yaml` を `1.1.0+1` に更新済み。iOSは未対応。
+  Codemagicのドメインはこちらからアクセスできないため、**ユーザー自身が
+  Codemagicで再ビルドを実行**する必要がある。ビルド完了後の流れ：
+  1. TestFlightで実機テスト（検索速度が改善しているか確認）
+  2. App Store Connectで新バージョン(1.1)を作成し、ビルドを選択
+     （この操作はこちらで代行可能）
+  3. App Review向けの説明文に「開発者が運用するCloudflare Workersの
+     キャッシュプロキシをOpenStreetMapの手前に追加した」旨を一言添える
+     （`docs/appstore_review_reply.md` の外部サービス一覧を更新する形）
+  4. 「審査用に追加」〜「App Reviewへ提出」は前回同様ユーザー自身が
+     最終ボタンを押す

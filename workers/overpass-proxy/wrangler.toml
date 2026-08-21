@@ -1,0 +1,6 @@
+name = "bento-navi-overpass-proxy"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# workers.dev サブドメインで公開する（カスタムドメインのDNS設定は不要）。
+# デプロイ後のURLは https://bento-navi-overpass-proxy.<あなたのサブドメイン>.workers.dev
