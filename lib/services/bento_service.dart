@@ -2,13 +2,26 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../models/shop.dart';
 
+List<Map<String, dynamic>> _decodeShops(String text) =>
+    (jsonDecode(text) as List<dynamic>).cast<Map<String, dynamic>>();
+
 /// OpenStreetMap (Nominatim + Overpass) を使った検索サービス。
 /// APIキー不要で利用できる。
 class BentoService {
+  BentoService({http.Client? client}) : _client = client ?? http.Client();
+
+  final http.Client _client;
+  void dispose() => _client.close();
+
+  final _shopCache = <String, List<Shop>>{};
+  final _shopCacheTimes = <String, DateTime>{};
+  final _placeCache = <String, List<Place>>{};
+  Future<List<Map<String, dynamic>>>? _curatedLoading;
   static const _nominatimBase = 'https://nominatim.openstreetmap.org/search';
 
   /// Overpassは混雑時に504を返したり無応答になったりするため、
@@ -50,16 +63,21 @@ class BentoService {
   /// Nominatimは「県名+施設名」の連結クエリに弱いため、
   /// 見つからない場合はクエリを段階的に変形して再検索する。
   Future<List<Place>> geocode(String query) async {
-    final normalized =
-        query.replaceAll('　', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final normalized = query
+        .replaceAll('　', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
     if (normalized.isEmpty) return [];
+    final cached = _placeCache[normalized];
+    if (cached != null) return List<Place>.of(cached);
 
     final tokens = normalized.split(' ');
     final attempts = <String>[normalized];
 
     // 都道府県トークンを外した施設名のみ
-    final nonPref =
-        tokens.where((t) => !RegExp(r'^.{2,3}[都道府県]$').hasMatch(t)).join(' ');
+    final nonPref = tokens
+        .where((t) => !RegExp(r'^.{2,3}[都道府県]$').hasMatch(t))
+        .join(' ');
     if (nonPref.isNotEmpty && nonPref != normalized) {
       attempts.add(nonPref);
     }
@@ -102,6 +120,10 @@ class BentoService {
       // 元のクエリ語（県名・市名など）を含む候補を優先する
       final ranked = _rankByTokens(places, tokens);
       if (_score(ranked.first, tokens) > 0 || attempt == normalized) {
+        if (_placeCache.length >= 30) {
+          _placeCache.remove(_placeCache.keys.first);
+        }
+        _placeCache[normalized] = List<Place>.of(ranked);
         return ranked;
       }
       fallback = (fallback == null || fallback.isEmpty) ? ranked : fallback;
@@ -119,7 +141,7 @@ class BentoService {
         'accept-language': 'ja',
       },
     );
-    final res = await http.get(uri);
+    final res = await _client.get(uri).timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) {
       throw Exception('場所の検索に失敗しました (HTTP ${res.statusCode})');
     }
@@ -157,15 +179,25 @@ class BentoService {
     double lat,
     double lon, {
     int radiusMeters = 1000,
+    void Function(List<Shop>)? onInitialResults,
   }) async {
+    final key = '$lat,$lon,$radiusMeters';
+    final cached = _shopCache[key];
+    if (cached != null &&
+        DateTime.now().difference(_shopCacheTimes[key]!) <
+            const Duration(minutes: 5)) {
+      return List<Shop>.of(cached);
+    }
     final curated = await searchCuratedShops(
       lat,
       lon,
       radiusMeters: radiusMeters,
     );
+    if (curated.isNotEmpty) onInitialResults?.call(List<Shop>.of(curated));
     // 地元の弁当屋はOSM上でジャンルタグがなく店名だけのことが多いため、
     // タグ検索に加えて店名の正規表現でも拾う
-    final query = '''
+    final query =
+        '''
 [out:json][timeout:25];
 (
   nwr["shop"~"^(convenience|supermarket|deli|bakery)\$"](around:$radiusMeters,$lat,$lon);
@@ -179,16 +211,19 @@ out center tags 100;
     Object? lastError;
     // 調査済み店舗がある地域では、OSMは補完用途として最初の1系統だけを
     // 短時間試す。応答がなくても固定データをすぐ返せるようにする。
-    final endpoints =
-        curated.isEmpty ? _overpassEndpoints : _overpassEndpoints.take(1);
-    final timeout = Duration(seconds: curated.isEmpty ? 20 : 5);
+    final endpoints = curated.isEmpty
+        ? _overpassEndpoints
+        : _overpassEndpoints.take(1);
+    final timeout = Duration(seconds: curated.isEmpty ? 6 : 5);
     for (final endpoint in endpoints) {
       try {
-        final r = await http.post(
-          Uri.parse(endpoint),
-          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-          body: {'data': query},
-        ).timeout(timeout);
+        final r = await _client
+            .post(
+              Uri.parse(endpoint),
+              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+              body: {'data': query},
+            )
+            .timeout(timeout);
         if (r.statusCode == 200) {
           res = r;
           break;
@@ -250,6 +285,13 @@ out center tags 100;
       if (seenNames.add(_normalizeName(shop.name))) merged.add(shop);
     }
     merged.sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
+    if (_shopCache.length >= 30) {
+      final oldest = _shopCache.keys.first;
+      _shopCache.remove(oldest);
+      _shopCacheTimes.remove(oldest);
+    }
+    _shopCache[key] = List<Shop>.of(merged);
+    _shopCacheTimes[key] = DateTime.now();
     return merged;
   }
 
@@ -290,9 +332,18 @@ out center tags 100;
 
   Future<List<Map<String, dynamic>>> _loadCuratedData() async {
     if (_curatedCache != null) return _curatedCache!;
-    final text = await rootBundle.loadString('assets/shops.json');
-    final list = jsonDecode(text) as List<dynamic>;
-    return _curatedCache = list.cast<Map<String, dynamic>>();
+    return _curatedLoading ??= _readCuratedData();
+  }
+
+  Future<List<Map<String, dynamic>>> _readCuratedData() async {
+    try {
+      final text = await rootBundle.loadString('assets/shops.json');
+      final data = await compute(_decodeShops, text);
+      _curatedCache = data;
+      return data;
+    } finally {
+      _curatedLoading = null;
+    }
   }
 
   String? _nonEmpty(dynamic value) {

@@ -71,6 +71,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final _queryController = TextEditingController();
 
   bool _loading = false;
+  bool _refreshingShops = false;
+  int _searchGeneration = 0;
   String? _error;
   Place? _selectedPlace;
   List<Shop> _shops = [];
@@ -115,6 +117,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _searchGeneration++;
+    _service.dispose();
     _queryController.dispose();
     super.dispose();
   }
@@ -174,6 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _searchByQuery({bool autoPick = false}) async {
+    final generation = ++_searchGeneration;
     final query = _queryController.text.trim();
     if (query.isEmpty) {
       setState(() => _error = '会場名や住所を入力してください（例: 県総合運動公園 宮崎）');
@@ -181,10 +186,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     setState(() {
       _loading = true;
+      _refreshingShops = false;
       _error = null;
     });
     try {
       final places = await _service.geocode(query);
+      if (!mounted || generation != _searchGeneration) return;
       if (places.isEmpty) {
         setState(() {
           _loading = false;
@@ -195,14 +202,17 @@ class _HomeScreenState extends State<HomeScreen> {
       Place? place = places.first;
       if (!autoPick && places.length > 1 && mounted) {
         place = await _pickPlace(places);
+        if (!mounted || generation != _searchGeneration) return;
         if (place == null) {
           setState(() => _loading = false);
           return;
         }
       }
       await _addHistory(query);
+      if (!mounted || generation != _searchGeneration) return;
       await _searchAround(place);
     } catch (e) {
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _loading = false;
         _error = '検索中にエラーが発生しました: $e';
@@ -211,8 +221,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _searchByCurrentLocation() async {
+    final generation = ++_searchGeneration;
     setState(() {
       _loading = true;
+      _refreshingShops = false;
       _error = null;
     });
     try {
@@ -222,6 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
+        if (!mounted || generation != _searchGeneration) return;
         setState(() {
           _loading = false;
           _error =
@@ -236,15 +249,18 @@ class _HomeScreenState extends State<HomeScreen> {
           timeLimit: Duration(seconds: 12),
         ),
       );
+      if (!mounted || generation != _searchGeneration) return;
       await _searchAround(
         Place(displayName: '現在地', lat: pos.latitude, lon: pos.longitude),
       );
     } on TimeoutException {
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _loading = false;
         _error = '現在地の取得がタイムアウトしました。電波状況の良い場所で再試行するか、会場名で検索してください。';
       });
     } catch (e) {
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _loading = false;
         _error = '現在地を取得できませんでした。ブラウザで位置情報が許可されているか確認するか、会場名で検索してください。';
@@ -302,26 +318,42 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _searchAround(Place place) async {
+    final generation = ++_searchGeneration;
     setState(() {
       _loading = true;
+      _refreshingShops = false;
       _error = null;
       _selectedPlace = place;
+      _activeFilters.clear();
     });
     try {
       final shops = await _service.searchShops(
         place.lat,
         place.lon,
         radiusMeters: _radius,
+        onInitialResults: (shops) {
+          if (!mounted || generation != _searchGeneration) return;
+          setState(() {
+            _shops = shops;
+            _searched = true;
+            _loading = false;
+            _refreshingShops = true;
+            _activeFilters.clear();
+          });
+        },
       );
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _loading = false;
+        _refreshingShops = false;
         _shops = shops;
         _searched = true;
-        _activeFilters.clear();
       });
     } catch (e) {
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _loading = false;
+        _refreshingShops = false;
         _error = '店舗の検索に失敗しました: $e';
       });
     }
@@ -350,17 +382,19 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (!launched && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('電話アプリを開けませんでした。電話番号: $phone')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('電話アプリを開けませんでした。電話番号: $phone')));
     }
   }
 
   void _resetSearch() {
+    _searchGeneration++;
     FocusManager.instance.primaryFocus?.unfocus();
     _queryController.clear();
     setState(() {
       _loading = false;
+      _refreshingShops = false;
       _error = null;
       _selectedPlace = null;
       _shops = [];
@@ -395,6 +429,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 14),
                   if (_error != null) _buildError(theme),
                   if (_loading) _buildLoading(theme),
+                  if (_refreshingShops)
+                    const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text('周辺の店舗を追加で確認しています…'),
+                    ),
                   if (!_loading && _searched) ..._buildResults(theme),
                   if (!_loading && !_searched && _history.isNotEmpty)
                     _buildHistory(theme),
@@ -1676,9 +1715,7 @@ class _ShopCard extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 4),
-                      _DeliveryBadge(
-                        availability: shop.deliveryAvailability,
-                      ),
+                      _DeliveryBadge(availability: shop.deliveryAvailability),
                     ],
                   ),
                 ),
