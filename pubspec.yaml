@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.2.0+13
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -42,7 +42,8 @@ dependencies:
   shared_preferences: ^2.5.0
   latlong2: ^0.9.0
   web: ^1.1.0
-  google_mobile_ads: ^9.0.0
+  # 注: アプリ版の広告(google_mobile_ads)はv1.0では載せていない。
+  # 理由と再導入の手順は docs/appstore_privacy.md を参照。
 
 dev_dependencies:
   flutter_test:
@@ -54,6 +55,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -99,3 +101,16 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+
+# アプリアイコンの生成設定
+# 元画像を差し替えたら次を実行して全サイズを再生成する:
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  ios: true
+  android: true
+  # iOSはアルファチャンネル(透過)を許可しないため必ず除去する
+  remove_alpha_ios: true
+  # Android: 背景はアイコンのオレンジに合わせる
+  adaptive_icon_background: "#E65100"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"

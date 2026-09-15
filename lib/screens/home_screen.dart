@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -155,8 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // 座標を埋め込むことで、開いた側でジオコーディングの揺れが起きないようにする
     var params = 'q=${Uri.encodeComponent(query)}&r=$_radius';
     if (place != null) {
-      params +=
-          '&lat=${place.lat.toStringAsFixed(6)}'
+      params += '&lat=${place.lat.toStringAsFixed(6)}'
           '&lon=${place.lon.toStringAsFixed(6)}'
           '&name=${Uri.encodeComponent(place.displayName)}';
     }
@@ -237,8 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (!mounted || generation != _searchGeneration) return;
         setState(() {
           _loading = false;
-          _error =
-              '位置情報がブロックされています。ブラウザのアドレスバーの鍵アイコン→「位置情報」から許可するか、'
+          _error = '位置情報がブロックされています。ブラウザのアドレスバーの鍵アイコン→「位置情報」から許可するか、'
               '上の入力欄に会場名を入れて検索してください。';
         });
         return;
@@ -1370,11 +1369,33 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── フッターリンク ──────────────────────────
+  /// 記事などの静的ページの公開先。
+  /// Webでは同じサイト内にあるため相対解決でよいが、ネイティブでは
+  /// Uri.base が端末内のパス(file://)を指すため絶対URLが必要。
+  static const _siteBaseUrl = 'https://hammy-the-cat.github.io/bento-navi/';
+
   Future<void> _openPage(String page) async {
+    // ネイティブからは ?app=1 を付ける。ページ側(app-view.js)がこれを見て
+    // 「アプリを開く」等のWeb版へのリンクを隠し、戻り方を案内する。
+    final uri =
+        kIsWeb ? Uri.base.resolve(page) : Uri.parse('$_siteBaseUrl$page?app=1');
+    var opened = false;
     try {
-      await launchUrl(Uri.base.resolve(page), mode: LaunchMode.platformDefault);
+      // アプリ内ブラウザで開く(アプリから離脱させない)
+      opened = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      if (!opened) {
+        opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
     } catch (_) {
-      // Web以外や解決失敗時は何もしない
+      opened = false;
+    }
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('ページを開けませんでした（$uri）'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -1386,13 +1407,13 @@ class _HomeScreenState extends State<HomeScreen> {
       decorationColor: Colors.grey.shade400,
     );
     Widget link(String label, String page) => InkWell(
-      onTap: () => _openPage(page),
-      borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Text(label, style: linkStyle),
-      ),
-    );
+          onTap: () => _openPage(page),
+          borderRadius: BorderRadius.circular(6),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Text(label, style: linkStyle),
+          ),
+        );
     return Padding(
       padding: const EdgeInsets.only(top: 20),
       child: Column(

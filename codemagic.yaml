@@ -6,11 +6,16 @@
 #   3. Apple Developer Program($99/年)に登録後、App Store Connect で
 #      「Users and Access → Integrations → App Store Connect API」から
 #      APIキー(.p8ファイル / Issuer ID / Key ID)を発行
-#   4. Codemagic の Teams → Integrations → App Store Connect に
+#   4. Codemagic の Settings → Integrations → Developer Portal に
 #      そのAPIキーを登録し、名前を「bento-navi-asc」にする
+#   4-2. Codemagic のアプリ設定 → Environment variables に
+#      CERTIFICATE_PRIVATE_KEY を追加する(Secureにチェック)。
+#      値は下記コマンドで生成したPEM形式のRSA秘密鍵の全文:
+#        ssh-keygen -t rsa -b 2048 -m PEM -f ios_distribution_private_key -q -N ""
+#      ※この鍵は配布用証明書の作成(CSR)に使う。紛失すると証明書を作り直すことになる
 #      (別の名前にした場合は、下の app_store_connect: の値を合わせて変更)
 #   5. App Store Connect でアプリを新規作成し、Bundle IDに
-#      com.hammythecat.bentoNavi を指定
+#      com.bentonavi.app を指定
 #
 # ■ ビルドの流れ
 #   Codemagicがクラウド上のMacで ビルド → 署名 → TestFlightへアップロード
@@ -30,23 +35,49 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      ios_signing:
-        # 証明書・プロビジョニングプロファイルはCodemagicが自動生成する
-        distribution_type: app_store
-        bundle_identifier: com.hammythecat.bentoNavi
+      vars:
+        BUNDLE_ID: "com.bentonavi.app"
+      # Codemagicの画面(Environment variables)で登録した変数グループ。
+      # グループ「appstore」に CERTIFICATE_PRIVATE_KEY を入れておくこと。
+      groups:
+        - appstore
+      # ※ ios_signing(自動署名)は使わない。
+      #   自動署名は「既存のプロファイルを探す」動作のため、
+      #   初回のようにプロファイル未作成だと失敗する。
+      #   下の fetch-signing-files --create で「無ければ作る」方式にしている。
 
     scripts:
       - name: Flutterパッケージを取得
         script: flutter pub get
 
-      - name: CocoaPodsを取得
-        script: find . -name "Podfile" -execdir pod install \;
-
+      # 解析・テストはCocoaPods取得より前に実行する。
+      # pod install後は build/ に依存パッケージのソースが展開され、
+      # それらのエラーで flutter analyze が失敗するため。
       - name: 静的解析
         script: flutter analyze
 
       - name: テスト
         script: flutter test
+
+      - name: CocoaPodsを取得
+        script: find . -name "Podfile" -execdir pod install \;
+
+      - name: キーチェーンを初期化
+        script: keychain initialize
+
+      - name: 署名ファイルを取得(無ければ作成)
+        script: |
+          # 配布用証明書とプロビジョニングプロファイルを
+          # App Store Connect API経由で取得。存在しなければ新規作成する。
+          # 証明書の作成にはCSR用の秘密鍵が必要なため、
+          # Codemagicの環境変数 CERTIFICATE_PRIVATE_KEY を参照する。
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --create
+
+      - name: 証明書をキーチェーンに登録
+        script: keychain add-certificates
 
       - name: 署名プロファイルを適用
         script: xcode-project use-profiles
@@ -71,8 +102,11 @@ workflows:
           failure: true
       app_store_connect:
         auth: integration
-        # TestFlight(内部テスト)へ自動アップロード。
-        # 実際の審査提出は App Store Connect の画面から手動で行う。
-        submit_to_testflight: true
+        # ビルドはApp Store Connectへアップロードされ、内部テスト(審査不要)で
+        # すぐに使える。submit_to_testflightは「外部テストの審査提出」を指し、
+        # フィードバック用メールなどのテスト情報が必須になるためfalseにしている。
+        # 外部テスターへ配布したくなったら、App Store Connectの
+        # TestFlight→テスト情報 を入力したうえでtrueに戻す。
+        submit_to_testflight: false
         # 審査へ自動提出したい場合は下をtrueにする(慣れるまではfalse推奨)
         submit_to_app_store: false

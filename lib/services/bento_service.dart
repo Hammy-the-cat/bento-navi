@@ -1,14 +1,24 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb, compute;
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../models/shop.dart';
 
 List<Map<String, dynamic>> _decodeShops(String text) =>
     (jsonDecode(text) as List<dynamic>).cast<Map<String, dynamic>>();
+
+/// Nominatimの利用規約では、アプリを識別できるUser-Agentが必須。
+/// ライブラリ既定のUser-Agent(Dart/x.y (dart:io))は403で拒否されるため、
+/// iOS/Androidのネイティブビルドでは必ずこれを送る。
+/// ※Webではブラウザが自動で付与し、User-Agentの上書きも禁止されているため送らない。
+const _userAgent =
+    'BentoNavi/1.0 (https://hammy-the-cat.github.io/bento-navi/; excitedcherry0909@gmail.com)';
+
+Map<String, String> get _apiHeaders =>
+    kIsWeb ? const {} : const {'User-Agent': _userAgent};
 
 /// OpenStreetMap (Nominatim + Overpass) を使った検索サービス。
 /// APIキー不要で利用できる。
@@ -24,12 +34,30 @@ class BentoService {
   Future<List<Map<String, dynamic>>>? _curatedLoading;
   static const _nominatimBase = 'https://nominatim.openstreetmap.org/search';
 
+  /// Overpassの前段に置いたCloudflare Workersのキャッシュプロキシ。
+  /// v1.0で計測した検索の遅さ(3.7〜29秒)への対策として v1.1 で追加。
+  /// 詳細: workers/overpass-proxy/。
+  /// ここが失敗した場合は下の _overpassEndpoints への直接アクセスに
+  /// フォールバックするため、Workerの障害がアプリ全体を止めることはない。
+  static const _overpassProxy =
+      'https://bento-navi-overpass-proxy.excitedcherry0909.workers.dev/';
+
   /// Overpassは混雑時に504を返したり無応答になったりするため、
   /// 複数のミラーをタイムアウト付きで順に試す
+  /// Overpassのミラー。
+  ///
+  /// 【重要】ミラーを追加・変更するときは、必ず**日本の実データが返るか**を
+  /// 件数で確認すること。HTTPステータスと応答速度だけで判断してはいけない。
+  /// 例: overpass.osm.ch はスイス限定のデータしか持たず、日本の座標では
+  ///     「200 OK かつ 0件」を高速に返すため、速い優良ミラーに見えてしまう。
+  ///
+  /// 2026-08-08 実測(東京駅周辺1km・要素数):
+  ///   overpass-api.de 100件/5.8秒 / kumi.systems 100件/8.1秒 /
+  ///   maps.mail.ru 100件/10.0秒 / osm.ch 0件(日本のデータなし・不採用)
   static const _overpassEndpoints = [
     'https://overpass-api.de/api/interpreter',
-    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   ];
 
   List<Map<String, dynamic>>? _curatedCache;
@@ -63,10 +91,8 @@ class BentoService {
   /// Nominatimは「県名+施設名」の連結クエリに弱いため、
   /// 見つからない場合はクエリを段階的に変形して再検索する。
   Future<List<Place>> geocode(String query) async {
-    final normalized = query
-        .replaceAll('　', ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    final normalized =
+        query.replaceAll('　', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     if (normalized.isEmpty) return [];
     final cached = _placeCache[normalized];
     if (cached != null) return List<Place>.of(cached);
@@ -75,9 +101,8 @@ class BentoService {
     final attempts = <String>[normalized];
 
     // 都道府県トークンを外した施設名のみ
-    final nonPref = tokens
-        .where((t) => !RegExp(r'^.{2,3}[都道府県]$').hasMatch(t))
-        .join(' ');
+    final nonPref =
+        tokens.where((t) => !RegExp(r'^.{2,3}[都道府県]$').hasMatch(t)).join(' ');
     if (nonPref.isNotEmpty && nonPref != normalized) {
       attempts.add(nonPref);
     }
@@ -141,7 +166,9 @@ class BentoService {
         'accept-language': 'ja',
       },
     );
-    final res = await _client.get(uri).timeout(const Duration(seconds: 10));
+    final res = await _client
+        .get(uri, headers: _apiHeaders)
+        .timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) {
       throw Exception('場所の検索に失敗しました (HTTP ${res.statusCode})');
     }
@@ -174,6 +201,18 @@ class BentoService {
     return ranked;
   }
 
+  /// Overpassの応答に要素が1件でも含まれるか。
+  /// 解析に失敗した場合は「中身あり」とみなさない。
+  static bool _hasElements(http.Response r) {
+    try {
+      final json = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      final elements = json['elements'] as List<dynamic>?;
+      return elements != null && elements.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 指定地点の周辺で弁当が買える店を検索する
   Future<List<Shop>> searchShops(
     double lat,
@@ -193,49 +232,98 @@ class BentoService {
       lon,
       radiusMeters: radiusMeters,
     );
+
     if (curated.isNotEmpty) onInitialResults?.call(List<Shop>.of(curated));
-    // 地元の弁当屋はOSM上でジャンルタグがなく店名だけのことが多いため、
-    // タグ検索に加えて店名の正規表現でも拾う
-    final query =
-        '''
+
+    http.Response? res;
+    Object? lastError;
+
+    // まずCloudflare Workersのキャッシュプロキシを試す。同じ会場・同じ半径の
+    // 再検索はエッジキャッシュにヒットして数百ms以内に返る。ミラー選定・
+    // 「0件は次のミラーを試す」判定はプロキシ側に集約済み
+    // (workers/overpass-proxy/src/index.js)。
+    try {
+      final proxyUri = Uri.parse(_overpassProxy).replace(queryParameters: {
+        'lat': '$lat',
+        'lon': '$lon',
+        'radius': '$radiusMeters',
+      });
+      final r = await _client
+          .get(proxyUri, headers: _apiHeaders)
+          .timeout(const Duration(seconds: 25));
+      if (r.statusCode == 200) {
+        res = r;
+      } else {
+        lastError = Exception('proxy HTTP ${r.statusCode}');
+      }
+    } catch (e) {
+      lastError = e;
+    }
+
+    // プロキシに繋がらない場合のみ、従来どおりOverpassミラーへ直接アクセスする。
+    if (res == null) {
+      // 地元の弁当屋はOSM上でジャンルタグがなく店名だけのことが多いため、
+      // タグ検索に加えて店名の正規表現でも拾う。
+      //
+      // ※ ["shop"]["name"~...] のようにキーで絞ってから店名照合する形も試したが、
+      //   都心部は shop キーを持つ要素自体が膨大なため逆に遅くなった
+      //   (東京駅1km: 29秒 → 40秒超でタイムアウト)。この形が最善。
+      const nameRe = '弁当|べんとう|ほか弁|ほっともっと|かまどや|オリジン|惣菜|仕出し';
+      final around = 'around:$radiusMeters,$lat,$lon';
+      final query = '''
 [out:json][timeout:25];
 (
-  nwr["shop"~"^(convenience|supermarket|deli|bakery)\$"](around:$radiusMeters,$lat,$lon);
-  nwr["amenity"="fast_food"](around:$radiusMeters,$lat,$lon);
-  nwr["name"~"弁当|べんとう|ほか弁|ほっともっと|かまどや|オリジン|惣菜|仕出し"](around:$radiusMeters,$lat,$lon);
-  nwr["amenity"="restaurant"]["takeaway"~"^(yes|only)\$"](around:$radiusMeters,$lat,$lon);
+  nwr["shop"~"^(convenience|supermarket|deli|bakery)\$"]($around);
+  nwr["amenity"="fast_food"]($around);
+  nwr["name"~"$nameRe"]($around);
+  nwr["amenity"="restaurant"]["takeaway"~"^(yes|only)\$"]($around);
 );
 out center tags 100;
 ''';
-    http.Response? res;
-    Object? lastError;
-    // 調査済み店舗がある地域では、OSMは補完用途として最初の1系統だけを
-    // 短時間試す。応答がなくても固定データをすぐ返せるようにする。
-    final endpoints = curated.isEmpty
-        ? _overpassEndpoints
-        : _overpassEndpoints.take(1);
-    final timeout = Duration(seconds: curated.isEmpty ? 6 : 5);
-    for (final endpoint in endpoints) {
-      try {
-        final r = await _client
-            .post(
-              Uri.parse(endpoint),
-              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-              body: {'data': query},
-            )
-            .timeout(timeout);
-        if (r.statusCode == 200) {
-          res = r;
-          break;
+      // 200を返したが0件だった応答。ミラーが該当地域のデータを持っていない
+      // 場合にこうなるため、すぐ採用せず次のミラーを試す。
+      // (全ミラーが0件なら「本当に周辺に店が無い」と判断してこれを使う)
+      http.Response? emptyRes;
+      // 調査済み店舗がある地域では、OSMは補完用途として最初の1系統だけを
+      // 短時間試す。応答がなくても固定データをすぐ返せるようにする。
+      final endpoints =
+          curated.isEmpty ? _overpassEndpoints : _overpassEndpoints.take(1);
+      // 1系統あたりの待ち時間。公共のOverpassは混雑時に10秒以上かかることが
+      // あるため20秒を確保する(短すぎると都市部で誤って失敗扱いになる)。
+      final timeout = Duration(seconds: curated.isEmpty ? 20 : 5);
+      for (final endpoint in endpoints) {
+        try {
+          final r = await _client.post(
+            Uri.parse(endpoint),
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              ..._apiHeaders,
+            },
+            body: {'data': query},
+          ).timeout(timeout);
+          if (r.statusCode == 200) {
+            if (_hasElements(r)) {
+              res = r;
+              break;
+            }
+            // 0件はミラー側のデータ欠落の可能性がある → 次を試す
+            emptyRes ??= r;
+            continue;
+          }
+          lastError = Exception('HTTP ${r.statusCode}');
+        } catch (e) {
+          lastError = e;
         }
-        lastError = Exception('HTTP ${r.statusCode}');
-      } catch (e) {
-        lastError = e;
       }
+      res ??= emptyRes;
     }
     if (res == null) {
       if (curated.isNotEmpty) return curated;
-      throw Exception('周辺の店舗検索に失敗しました ($lastError)。少し待って再試行してください。');
+      final isTimeout = lastError is TimeoutException;
+      throw Exception(isTimeout
+          ? '店舗情報サーバーの応答がありませんでした。'
+              '電波の良い場所で、しばらく待ってからもう一度お試しください。'
+          : '周辺の店舗検索に失敗しました ($lastError)。少し待って再試行してください。');
     }
     final json = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
     final elements = (json['elements'] as List<dynamic>?) ?? [];
