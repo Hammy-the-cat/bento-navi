@@ -49,17 +49,10 @@ class GoogleConsentGateway implements AdConsentGateway {
       await ConsentInformation.instance.getPrivacyOptionsRequirementStatus() ==
       PrivacyOptionsRequirementStatus.required;
   @override
-  Future<void> showPrivacyOptions() async {
-    final done = Completer<void>();
-    await ConsentForm.showPrivacyOptionsForm((error) {
-      if (error == null) {
-        done.complete();
-      } else {
-        done.completeError(error);
-      }
-    });
-    await done.future;
-  }
+  Future<void> showPrivacyOptions() =>
+      ConsentForm.showPrivacyOptionsForm((error) {
+        if (error != null) throw error;
+      });
 
   @override
   Future<void> initializeAds() async {
