@@ -37,6 +37,8 @@ workflows:
       cocoapods: default
       vars:
         BUNDLE_ID: "com.bentonavi.app"
+        MOBILE_ADS_MODE: "production"
+        ADMOB_IOS_BANNER_ID: "ca-app-pub-9774452859108904/2626172025"
       # Codemagicの画面(Environment variables)で登録した変数グループ。
       # グループ「appstore」に CERTIFICATE_PRIVATE_KEY を入れておくこと。
       groups:
@@ -50,10 +52,16 @@ workflows:
       - name: Flutterパッケージを取得
         script: flutter pub get
 
-      - name: 広告テスト版の公開防止
+      - name: 広告ビルド設定の検証
         script: |
-          # 広告の実機確認とプライバシー申告が完了するまで通常リリースを停止。
-          test "$MOBILE_ADS_MODE" = "test" || { echo "Use ios-admob-test until the AdMob release checklist is complete."; exit 1; }
+          # 実機確認済み。本番とテストの広告設定を明示する。
+          case "$MOBILE_ADS_MODE" in
+            test) ;;
+            production)
+              test "$ADMOB_IOS_BANNER_ID" = "ca-app-pub-9774452859108904/2626172025" || exit 1
+              ;;
+            *) echo "An explicit test or production ad mode is required."; exit 1 ;;
+          esac
 
       # 解析・テストはCocoaPods取得より前に実行する。
       # pod install後は build/ に依存パッケージのソースが展開され、
@@ -91,11 +99,16 @@ workflows:
         script: |
           # ビルド番号はCodemagicが自動でインクリメントする値を使う
           flutter build ipa --release \
-            --dart-define=MOBILE_ADS_MODE=test \
+            --dart-define=MOBILE_ADS_MODE="$MOBILE_ADS_MODE" \
+            --dart-define=ADMOB_IOS_BANNER_ID="${ADMOB_IOS_BANNER_ID:-}" \
             --build-number=$PROJECT_BUILD_NUMBER \
             --export-options-plist=/Users/builder/export_options.plist
 
+      - name: Export bundled SDK privacy declarations
+        script: python3 tool/ios_privacy_report.py
+
     artifacts:
+      - build/ios/privacy-report.txt
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
 
