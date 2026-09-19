@@ -1,8 +1,7 @@
 /// 広告の設定。
 ///
-/// 現在広告を出しているのは **Web版のみ**(Google AdSense)。
-/// アプリ版(iOS/Android)はv1.0では広告を載せていないため、
-/// AdMobの設定は存在しない。再導入の手順は docs/appstore_privacy.md を参照。
+/// Web版のGoogle AdSense設定。
+/// iOSのAdMob設定は mobile_banner.dart と docs/広告導入状況.md を参照。
 ///
 /// スロットIDが未設定の間は、実広告の代わりにプレースホルダーが表示される。
 class AdConfig {

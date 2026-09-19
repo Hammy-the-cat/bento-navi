@@ -22,7 +22,7 @@
 #   まで自動実行する。Windowsのブラウザだけで完結する。
 
 workflows:
-  ios-release:
+  ios-release: &ios_workflow
     name: iOS リリース (TestFlight)
     instance_type: mac_mini_m2
     max_build_duration: 60
@@ -49,6 +49,11 @@ workflows:
     scripts:
       - name: Flutterパッケージを取得
         script: flutter pub get
+
+      - name: 広告テスト版の公開防止
+        script: |
+          # 広告の実機確認とプライバシー申告が完了するまで通常リリースを停止。
+          test "$MOBILE_ADS_MODE" = "test" || { echo "Use ios-admob-test until the AdMob release checklist is complete."; exit 1; }
 
       # 解析・テストはCocoaPods取得より前に実行する。
       # pod install後は build/ に依存パッケージのソースが展開され、
@@ -86,6 +91,7 @@ workflows:
         script: |
           # ビルド番号はCodemagicが自動でインクリメントする値を使う
           flutter build ipa --release \
+            --dart-define=MOBILE_ADS_MODE=test \
             --build-number=$PROJECT_BUILD_NUMBER \
             --export-options-plist=/Users/builder/export_options.plist
 
@@ -110,3 +116,16 @@ workflows:
         submit_to_testflight: false
         # 審査へ自動提出したい場合は下をtrueにする(慣れるまではfalse推奨)
         submit_to_app_store: false
+
+  ios-admob-test:
+    <<: *ios_workflow
+    name: iOS 広告の実機テスト専用
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.bentonavi.app"
+        MOBILE_ADS_MODE: "test"
+      groups:
+        - appstore

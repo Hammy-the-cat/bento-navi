@@ -13,6 +13,7 @@ import '../config/ad_config.dart';
 import '../models/shop.dart';
 import '../services/bento_service.dart';
 import '../widgets/ad_banner.dart';
+import '../widgets/mobile_banner.dart';
 
 /// カテゴリごとのテーマカラー
 Color categoryColor(ShopCategory c) {
@@ -90,6 +91,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadHistory();
+    if (mobileAdsEnabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(mobileAdConsent.start());
+      });
+    }
     // Web版: ?q=会場名&r=3000 で開くと自動検索する
     final r = widget.initialRadius;
     if (r != null && _radiusOptions.contains(r)) {
@@ -414,6 +420,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8F2),
+      bottomNavigationBar: _searched && !_loading && _shops.isNotEmpty
+          ? const MobileSearchBanner()
+          : null,
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -1426,6 +1435,7 @@ class _HomeScreenState extends State<HomeScreen> {
               link('よくある質問', 'faq.html'),
               link('運営者について', 'about.html'),
               link('プライバシーポリシー', 'privacy.html'),
+              const MobileAdPrivacyButton(),
             ],
           ),
           const SizedBox(height: 4),
