@@ -49,6 +49,9 @@ workflows:
       #   下の fetch-signing-files --create で「無ければ作る」方式にしている。
 
     scripts:
+      - name: 店舗シート反映漏れの検証
+        script: python3 tool/check_shop_catalog.py
+
       - name: Flutterパッケージを取得
         script: flutter pub get
 

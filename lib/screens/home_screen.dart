@@ -14,6 +14,7 @@ import '../models/shop.dart';
 import '../services/bento_service.dart';
 import '../widgets/ad_banner.dart';
 import '../widgets/mobile_banner.dart';
+import 'catalog_screen.dart';
 
 /// カテゴリごとのテーマカラー
 Color categoryColor(ShopCategory c) {
@@ -162,7 +163,8 @@ class _HomeScreenState extends State<HomeScreen> {
     // 座標を埋め込むことで、開いた側でジオコーディングの揺れが起きないようにする
     var params = 'q=${Uri.encodeComponent(query)}&r=$_radius';
     if (place != null) {
-      params += '&lat=${place.lat.toStringAsFixed(6)}'
+      params +=
+          '&lat=${place.lat.toStringAsFixed(6)}'
           '&lon=${place.lon.toStringAsFixed(6)}'
           '&name=${Uri.encodeComponent(place.displayName)}';
     }
@@ -243,7 +245,8 @@ class _HomeScreenState extends State<HomeScreen> {
         if (!mounted || generation != _searchGeneration) return;
         setState(() {
           _loading = false;
-          _error = '位置情報がブロックされています。ブラウザのアドレスバーの鍵アイコン→「位置情報」から許可するか、'
+          _error =
+              '位置情報がブロックされています。ブラウザのアドレスバーの鍵アイコン→「位置情報」から許可するか、'
               '上の入力欄に会場名を入れて検索してください。';
         });
         return;
@@ -434,6 +437,16 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 children: [
                   _buildSearchCard(theme),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            CatalogScreen(loadCatalog: _service.loadCatalog),
+                      ),
+                    ),
+                    icon: const Icon(Icons.storefront_outlined),
+                    label: const Text('地域別の掲載店から探す'),
+                  ),
                   const SizedBox(height: 14),
                   if (_error != null) _buildError(theme),
                   if (_loading) _buildLoading(theme),
@@ -1386,8 +1399,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openPage(String page) async {
     // ネイティブからは ?app=1 を付ける。ページ側(app-view.js)がこれを見て
     // 「アプリを開く」等のWeb版へのリンクを隠し、戻り方を案内する。
-    final uri =
-        kIsWeb ? Uri.base.resolve(page) : Uri.parse('$_siteBaseUrl$page?app=1');
+    final uri = kIsWeb
+        ? Uri.base.resolve(page)
+        : Uri.parse('$_siteBaseUrl$page?app=1');
     var opened = false;
     try {
       // アプリ内ブラウザで開く(アプリから離脱させない)
@@ -1416,13 +1430,13 @@ class _HomeScreenState extends State<HomeScreen> {
       decorationColor: Colors.grey.shade400,
     );
     Widget link(String label, String page) => InkWell(
-          onTap: () => _openPage(page),
-          borderRadius: BorderRadius.circular(6),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Text(label, style: linkStyle),
-          ),
-        );
+      onTap: () => _openPage(page),
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Text(label, style: linkStyle),
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.only(top: 20),
       child: Column(

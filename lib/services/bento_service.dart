@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../models/shop.dart';
+import '../models/catalog_shop.dart';
 
 List<Map<String, dynamic>> _decodeShops(String text) =>
     (jsonDecode(text) as List<dynamic>).cast<Map<String, dynamic>>();
@@ -91,8 +92,10 @@ class BentoService {
   /// Nominatimは「県名+施設名」の連結クエリに弱いため、
   /// 見つからない場合はクエリを段階的に変形して再検索する。
   Future<List<Place>> geocode(String query) async {
-    final normalized =
-        query.replaceAll('　', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final normalized = query
+        .replaceAll('　', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
     if (normalized.isEmpty) return [];
     final cached = _placeCache[normalized];
     if (cached != null) return List<Place>.of(cached);
@@ -101,8 +104,9 @@ class BentoService {
     final attempts = <String>[normalized];
 
     // 都道府県トークンを外した施設名のみ
-    final nonPref =
-        tokens.where((t) => !RegExp(r'^.{2,3}[都道府県]$').hasMatch(t)).join(' ');
+    final nonPref = tokens
+        .where((t) => !RegExp(r'^.{2,3}[都道府県]$').hasMatch(t))
+        .join(' ');
     if (nonPref.isNotEmpty && nonPref != normalized) {
       attempts.add(nonPref);
     }
@@ -243,11 +247,13 @@ class BentoService {
     // 「0件は次のミラーを試す」判定はプロキシ側に集約済み
     // (workers/overpass-proxy/src/index.js)。
     try {
-      final proxyUri = Uri.parse(_overpassProxy).replace(queryParameters: {
-        'lat': '$lat',
-        'lon': '$lon',
-        'radius': '$radiusMeters',
-      });
+      final proxyUri = Uri.parse(_overpassProxy).replace(
+        queryParameters: {
+          'lat': '$lat',
+          'lon': '$lon',
+          'radius': '$radiusMeters',
+        },
+      );
       final r = await _client
           .get(proxyUri, headers: _apiHeaders)
           .timeout(const Duration(seconds: 25));
@@ -270,7 +276,8 @@ class BentoService {
       //   (東京駅1km: 29秒 → 40秒超でタイムアウト)。この形が最善。
       const nameRe = '弁当|べんとう|ほか弁|ほっともっと|かまどや|オリジン|惣菜|仕出し';
       final around = 'around:$radiusMeters,$lat,$lon';
-      final query = '''
+      final query =
+          '''
 [out:json][timeout:25];
 (
   nwr["shop"~"^(convenience|supermarket|deli|bakery)\$"]($around);
@@ -286,21 +293,24 @@ out center tags 100;
       http.Response? emptyRes;
       // 調査済み店舗がある地域では、OSMは補完用途として最初の1系統だけを
       // 短時間試す。応答がなくても固定データをすぐ返せるようにする。
-      final endpoints =
-          curated.isEmpty ? _overpassEndpoints : _overpassEndpoints.take(1);
+      final endpoints = curated.isEmpty
+          ? _overpassEndpoints
+          : _overpassEndpoints.take(1);
       // 1系統あたりの待ち時間。公共のOverpassは混雑時に10秒以上かかることが
       // あるため20秒を確保する(短すぎると都市部で誤って失敗扱いになる)。
       final timeout = Duration(seconds: curated.isEmpty ? 20 : 5);
       for (final endpoint in endpoints) {
         try {
-          final r = await _client.post(
-            Uri.parse(endpoint),
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              ..._apiHeaders,
-            },
-            body: {'data': query},
-          ).timeout(timeout);
+          final r = await _client
+              .post(
+                Uri.parse(endpoint),
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  ..._apiHeaders,
+                },
+                body: {'data': query},
+              )
+              .timeout(timeout);
           if (r.statusCode == 200) {
             if (_hasElements(r)) {
               res = r;
@@ -320,10 +330,12 @@ out center tags 100;
     if (res == null) {
       if (curated.isNotEmpty) return curated;
       final isTimeout = lastError is TimeoutException;
-      throw Exception(isTimeout
-          ? '店舗情報サーバーの応答がありませんでした。'
-              '電波の良い場所で、しばらく待ってからもう一度お試しください。'
-          : '周辺の店舗検索に失敗しました ($lastError)。少し待って再試行してください。');
+      throw Exception(
+        isTimeout
+            ? '店舗情報サーバーの応答がありませんでした。'
+                  '電波の良い場所で、しばらく待ってからもう一度お試しください。'
+            : '周辺の店舗検索に失敗しました ($lastError)。少し待って再試行してください。',
+      );
     }
     final json = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
     final elements = (json['elements'] as List<dynamic>?) ?? [];
@@ -392,6 +404,8 @@ out center tags 100;
     final data = await _loadCuratedData();
     final shops = <Shop>[];
     for (final item in data) {
+      // Addressless delivery/mobile shops remain available in the catalog.
+      if (item['lat'] is! num || item['lon'] is! num) continue;
       final shopLat = (item['lat'] as num).toDouble();
       final shopLon = (item['lon'] as num).toDouble();
       final distance = haversineMeters(lat, lon, shopLat, shopLon);
@@ -417,6 +431,9 @@ out center tags 100;
     shops.sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
     return shops;
   }
+
+  Future<List<CatalogShop>> loadCatalog() async =>
+      (await _loadCuratedData()).map(CatalogShop.fromJson).toList();
 
   Future<List<Map<String, dynamic>>> _loadCuratedData() async {
     if (_curatedCache != null) return _curatedCache!;
