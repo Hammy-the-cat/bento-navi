@@ -62,6 +62,30 @@ void main() {
     expect(shops, isNotEmpty);
   });
 
+  test('登録店舗の先行表示後もプロキシの応答時間を確保する', () async {
+    var calls = 0;
+    var initialShown = false;
+    String? notice;
+    final service = BentoService(
+      proxyTimeout: const Duration(milliseconds: 300),
+      fallbackTimeout: const Duration(milliseconds: 100),
+      client: MockClient((request) async {
+        calls++;
+        expect(initialShown, isTrue);
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        return http.Response('{"elements":[]}', 200);
+      }),
+    );
+    addTearDown(service.dispose);
+    final shops = await service.searchShops(31.9434282, 131.3716193,
+        radiusMeters: 3000,
+        onInitialResults: (_) => initialShown = true,
+        onNotice: (value) => notice = value);
+    expect(shops, isNotEmpty);
+    expect(calls, 1);
+    expect(notice, isNull);
+  });
+
   test('報告された3会場をオフラインで正しい地域へ解決する', () async {
     final service =
         BentoService(client: MockClient((_) => throw StateError('通信不要')));

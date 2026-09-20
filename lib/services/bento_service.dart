@@ -371,11 +371,9 @@ class BentoService {
         'lon': '$lon',
         'radius': '$radiusMeters',
       });
-      elements = _elements(await _request(
-          uri,
-          curated.isEmpty
-              ? proxyTimeout
-              : Duration(milliseconds: proxyTimeout.inMilliseconds ~/ 2)));
+      // Workerの最大7秒より長く待つ。登録店舗は既に先行表示しているため、
+      // 待ち時間を半減して正常な追加結果を捨てる必要はない。
+      elements = _elements(await _request(uri, proxyTimeout));
     } catch (_) {
       // プロキシ障害の予備経路は1回だけ。長いミラー巡回を重ねない。
     }
@@ -393,10 +391,7 @@ out center tags;
 ''';
       try {
         elements = _elements(await _request(
-            Uri.parse(_overpassEndpoints.first),
-            curated.isEmpty
-                ? fallbackTimeout
-                : Duration(milliseconds: fallbackTimeout.inMilliseconds ~/ 2),
+            Uri.parse(_overpassEndpoints.first), fallbackTimeout,
             query: query));
       } catch (_) {
         if (curated.isNotEmpty) {
