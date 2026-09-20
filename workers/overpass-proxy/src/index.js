@@ -1,23 +1,16 @@
 /**
- * べんとうナビ用 Overpass API キャッシュプロキシ。
- *
- * lib/services/bento_service.dart の searchShops() が直接 Overpass ミラーを
- * 叩いていた部分をエッジでキャッシュする。QLクエリの組み立て・ミラー順・
- * 「0件は次のミラーを試す」ロジックは同ファイルから移植したもの。
- * Worker が失敗した場合、アプリ側は従来のミラー直叩きにフォールバックする
- * (lib/services/bento_service.dart 参照)。
+ * べんとうナビの店舗検索プロキシ。2系統を総時間7秒で照会し、
+ * 完全な正常応答だけを採用する。店舗がある応答のみ6時間キャッシュ。
  */
 
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 
 const USER_AGENT =
   'BentoNavi/1.0 (https://bento.hammythecat.com/; excitedcherry0909@gmail.com)';
 
-const NAME_RE = '弁当|べんとう|ほか弁|ほっともっと|かまどや|オリジン|惣菜|仕出し';
 
 // 6時間。頻繁に変わらない店舗データにはこの程度で十分。
 const CACHE_TTL_SECONDS = 6 * 60 * 60;
@@ -25,75 +18,61 @@ const CACHE_TTL_SECONDS = 6 * 60 * 60;
 function buildQuery(lat, lon, radiusMeters) {
   const around = `around:${radiusMeters},${lat},${lon}`;
   return `
-[out:json][timeout:25];
+[out:json][timeout:6];
 (
   nwr["shop"~"^(convenience|supermarket|deli|bakery)$"](${around});
   nwr["amenity"="fast_food"](${around});
-  nwr["name"~"${NAME_RE}"](${around});
   nwr["amenity"="restaurant"]["takeaway"~"^(yes|only)$"](${around});
 );
-out center tags 100;
+out center tags;
 `;
 }
 
-function hasElements(bodyText) {
-  try {
-    const json = JSON.parse(bodyText);
-    return Array.isArray(json.elements) && json.elements.length > 0;
-  } catch {
-    return false;
+export function validateBody(bodyText) {
+  const data = JSON.parse(bodyText);
+  if (!Array.isArray(data.elements) || data.remark != null) {
+    throw new Error('Incomplete Overpass response');
   }
+  return data.elements.length;
 }
 
-async function fetchWithTimeout(url, options, timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+// 同時に2系統まで。正常な非空応答を先着採用し、不要な通信も中止する。
+// 0件は全系統が正常に0件と確認できた場合だけ採用する。
+export async function queryOverpass(lat, lon, radiusMeters, {
+  fetcher = fetch, timeoutMs = 7000, endpoints = OVERPASS_ENDPOINTS,
+} = {}) {
+  const controllers = endpoints.map(() => new AbortController());
+  let timer;
+  const tasks = endpoints.map(async (endpoint, i) => {
+    const response = await fetcher(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
+      body: `data=${encodeURIComponent(buildQuery(lat, lon, radiusMeters))}`,
+      signal: controllers[i].signal,
+    });
+    if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
+    const bodyText = await response.text(); // body読み取りも総時間制限の対象
+    return { bodyText, count: validateBody(bodyText) };
+  });
+  const success = Promise.any(tasks.map(async task => {
+    const result = await task;
+    if (!result.count) throw new Error('empty');
+    return result;
+  }));
+  const allEmpty = Promise.all(tasks).then(results => {
+    if (results.every(r => r.count === 0)) return results[0];
+    return new Promise(() => {});
+  });
+  // 一方の失敗で、もう一方の有効な応答を捨てない。
+  const result = Promise.any([success, allEmpty]);
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    return await Promise.race([result, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Upstream deadline exceeded')), timeoutMs);
+    })]);
   } finally {
     clearTimeout(timer);
+    controllers.forEach(c => c.abort());
   }
-}
-
-async function queryOverpass(lat, lon, radiusMeters) {
-  const query = buildQuery(lat, lon, radiusMeters);
-  let emptyBody = null;
-  let lastError = null;
-
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    try {
-      const res = await fetchWithTimeout(
-        endpoint,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': USER_AGENT,
-          },
-          body: `data=${encodeURIComponent(query)}`,
-        },
-        20000,
-      );
-      if (res.status === 200) {
-        const bodyText = await res.text();
-        if (hasElements(bodyText)) {
-          return { bodyText, cacheable: true };
-        }
-        // 0件はミラーがそのデータを持っていない可能性がある → 次を試す
-        emptyBody ??= bodyText;
-        continue;
-      }
-      lastError = new Error(`HTTP ${res.status}`);
-    } catch (e) {
-      lastError = e;
-    }
-  }
-
-  if (emptyBody !== null) {
-    // 全ミラーが0件 → 本当に周辺に店が無いとみなし、キャッシュもする
-    return { bodyText: emptyBody, cacheable: true };
-  }
-  throw lastError ?? new Error('all mirrors failed');
 }
 
 function normalizeParams(url) {
@@ -108,7 +87,7 @@ function normalizeParams(url) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(radius)) {
     return null;
   }
-  if (radius <= 0) return null;
+  if (lat < 20 || lat > 46 || lon < 122 || lon > 154 || radius <= 0 || radius > 10000) return null;
   // キャッシュヒット率を上げるため、座標を約100m単位に丸める。
   // 検索半径(500m〜3km)に対して十分小さい誤差であり、キャッシュキーと
   // 実際にOverpassへ投げる座標の両方をこの丸めた値に揃える。
@@ -144,11 +123,9 @@ export default {
     }
 
     const cache = caches.default;
-    // v2: CORSヘッダーをキャッシュ本体に含めるよう修正したため、
-    // それ以前に保存された(CORSヘッダー欠落の)キャッシュを無効化するために
-    // キーのバージョンを上げてある。
+    // v3: 不完全な応答・誤った0件キャッシュを無効化。
     const cacheKey = new Request(
-      `https://cache-key.internal/overpass-v2?lat=${params.lat}&lon=${params.lon}&radius=${params.radius}`,
+      `https://cache-key.internal/overpass-v3?lat=${params.lat}&lon=${params.lon}&radius=${params.radius}`,
       { method: 'GET' },
     );
 
@@ -161,7 +138,7 @@ export default {
 
     let result;
     try {
-      result = await queryOverpass(params.lat, params.lon, params.radius);
+      result = await queryOverpass(params.lat, params.lon, params.radius + 80);
     } catch (e) {
       return new Response(
         JSON.stringify({ error: `Overpass取得に失敗しました: ${e}` }),
@@ -175,7 +152,7 @@ export default {
       ...CORS_HEADERS,
     };
 
-    if (result.cacheable) {
+    if (result.count > 0) {
       const cacheableResponse = new Response(result.bodyText, {
         status: 200,
         headers: {
