@@ -43,8 +43,10 @@ void main() {
     );
     expect(cached.length, shops.length);
     expect(requests, 1);
-    await service.searchShops(31.4631, 131.2285, radiusMeters: 500);
-    expect(requests, 2);
+    final smaller =
+        await service.searchShops(31.4631, 131.2285, radiusMeters: 500);
+    expect(requests, 1);
+    expect(smaller.every((shop) => shop.distanceMeters <= 500), isTrue);
   });
 
   test('外部検索が失敗しても調査済み店舗を維持する', () async {

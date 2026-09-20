@@ -346,6 +346,20 @@ class BentoService {
             const Duration(minutes: 5)) {
       return List<Shop>.of(cached);
     }
+    // 同じ中心の広い検索が完了済みなら、半径を狭める操作は通信不要。
+    // 完全な応答のみがキャッシュされるため、部分結果を0件と誤認しない。
+    for (final entry in _shopCache.entries) {
+      final parts = entry.key.split(',');
+      if (parts[0] == '$lat' &&
+          parts[1] == '$lon' &&
+          int.parse(parts[2]) >= radiusMeters &&
+          DateTime.now().difference(_shopCacheTimes[entry.key]!) <
+              const Duration(minutes: 5)) {
+        return entry.value
+            .where((shop) => shop.distanceMeters <= radiusMeters)
+            .toList();
+      }
+    }
     final curated =
         await searchCuratedShops(lat, lon, radiusMeters: radiusMeters);
     if (generation != _requestGeneration) throw StateError('検索が切り替わりました');
