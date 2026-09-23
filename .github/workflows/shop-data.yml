@@ -1,0 +1,102 @@
+name: Build shop data
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/shop-data.yml'
+      - 'tool/shop_data/**'
+      - 'workers/overpass-proxy/src/**'
+  schedule:
+    - cron: '23 18 * * 0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shop-data-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test workers/overpass-proxy/src/*.test.mjs
+      - run: python -m unittest discover -s tool/shop_data -p 'test_*.py'
+      - run: python tool/check_shop_catalog.py
+
+  extract:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        region: [hokkaido, tohoku, kanto, chubu, kansai, chugoku, shikoku, kyushu]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install geometry processor
+        run: sudo apt-get update -qq && sudo apt-get install -y osmium-tool
+      - name: Download and process regional source on the runner
+        shell: bash
+        env:
+          REGION: ${{ matrix.region }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/osm" output
+          RAW="$RUNNER_TEMP/osm/$REGION.osm.pbf"
+          FILTERED="$RUNNER_TEMP/osm/shops.osm.pbf"
+          JSONSEQ="$RUNNER_TEMP/osm/shops.geojsonseq"
+          curl --fail --location --retry 3 --max-time 600 \
+            "https://download.geofabrik.de/asia/japan/$REGION-latest.osm.pbf" -o "$RAW"
+          STAMP=$(osmium fileinfo -g header.option.osmosis_replication_timestamp "$RAW")
+          test -n "$STAMP"
+          osmium tags-filter "$RAW" \
+            nwr/shop=convenience,supermarket,deli,bakery \
+            nwr/amenity=fast_food,restaurant -o "$FILTERED"
+          osmium export "$FILTERED" -f geojsonseq --attributes=type,id \
+            --show-errors -o "$JSONSEQ" 2> output/geometry-errors.txt
+          python tool/shop_data/build.py extract --source "$JSONSEQ" \
+            --output "output/$REGION.jsonl" --region "$REGION" --source-timestamp "$STAMP"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shops-${{ matrix.region }}
+          path: output/
+          retention-days: 7
+
+  assemble:
+    needs: extract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: shops-*
+          path: inputs
+          merge-multiple: true
+      - name: Validate all regions and build immutable tiles
+        env:
+          VERSION: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: python tool/shop_data/build.py assemble --inputs inputs --output dataset --version "$VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shop-dataset
+          path: dataset/
+          retention-days: 14
+      - name: Publish verified data (enabled only after initial acceptance)
+        if: github.ref == 'refs/heads/main' && vars.SHOP_DATA_PUBLISH == 'true'
+        env:
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_BUCKET: bento-navi-shop-data
+          AWS_ACCESS_KEY_ID: ${{ secrets.SHOP_DATA_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SHOP_DATA_R2_SECRET_ACCESS_KEY }}
+        run: |
+          python -m pip install 'boto3>=1.40,<2'
+          python tool/shop_data/publish.py --dataset dataset

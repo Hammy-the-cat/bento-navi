@@ -1,3 +1,5 @@
+import {snapshotResponse} from './snapshot.js';
+
 /**
  * べんとうナビの店舗検索プロキシ。2系統を総時間7秒で照会し、
  * 完全な正常応答だけを採用する。店舗がある応答のみ6時間キャッシュ。
@@ -112,6 +114,12 @@ export default {
     }
     if (request.method !== 'GET') {
       return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
+    }
+
+    // Activate only after a complete, validated dataset has been published.
+    // Existing iOS versions understand the same {elements: [...]} response.
+    if (env.SHOP_DATA) {
+      return snapshotResponse(request, env, ctx, caches.default);
     }
 
     const params = normalizeParams(url);
