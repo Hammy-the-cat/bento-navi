@@ -71,6 +71,12 @@
       "title": "みやざきの弁当屋さん",
       "url": "https://docs.google.com/spreadsheets/d/1LymNbO9dyiCOIt-qEuYzH8_twGzOv3MPeNGSji7UbeQ/edit?usp=drivesdk",
       "updatedAt": "2026-07-25T10:45:52.184Z"
+    },
+    {
+      "id": "1Szpgg7QaLXMW436VPgPS039z6dwr79Xw5Q1kGLCCSxc",
+      "title": "未掲載9都県の弁当屋さん（公式情報調査）",
+      "url": "https://docs.google.com/spreadsheets/d/1Szpgg7QaLXMW436VPgPS039z6dwr79Xw5Q1kGLCCSxc/edit",
+      "updatedAt": "2026-09-23T00:00:00.000Z"
     }
   ],
   "tabs": [
@@ -301,6 +307,60 @@
       "book": "みやざきの弁当屋さん",
       "sheetId": 0,
       "title": "店舗マスタ"
+    },
+    {
+      "spreadsheetId": "1Szpgg7QaLXMW436VPgPS039z6dwr79Xw5Q1kGLCCSxc",
+      "book": "未掲載9都県の弁当屋さん（公式情報調査）",
+      "sheetId": 931475178,
+      "title": "茨城県"
+    },
+    {
+      "spreadsheetId": "1Szpgg7QaLXMW436VPgPS039z6dwr79Xw5Q1kGLCCSxc",
+      "book": "未掲載9都県の弁当屋さん（公式情報調査）",
+      "sheetId": 240651202,
+      "title": "栃木県"
+    },
+    {
+      "spreadsheetId": "1Szpgg7QaLXMW436VPgPS039z6dwr79Xw5Q1kGLCCSxc",
+      "book": "未掲載9都県の弁当屋さん（公式情報調査）",
+      "sheetId": 1769764146,
+      "title": "群馬県"
+    },
+    {
+      "spreadsheetId": "1Szpgg7QaLXMW436VPgPS039z6dwr79Xw5Q1kGLCCSxc",
+      "book": "未掲載9都県の弁当屋さん（公式情報調査）",
+      "sheetId": 1439678144,
+      "title": "埼玉県"
+    },
+    {
+      "spreadsheetId": "1Szpgg7QaLXMW436VPgPS039z6dwr79Xw5Q1kGLCCSxc",
+      "book": "未掲載9都県の弁当屋さん（公式情報調査）",
+      "sheetId": 1466053706,
+      "title": "千葉県"
+    },
+    {
+      "spreadsheetId": "1Szpgg7QaLXMW436VPgPS039z6dwr79Xw5Q1kGLCCSxc",
+      "book": "未掲載9都県の弁当屋さん（公式情報調査）",
+      "sheetId": 698508967,
+      "title": "東京都"
+    },
+    {
+      "spreadsheetId": "1Szpgg7QaLXMW436VPgPS039z6dwr79Xw5Q1kGLCCSxc",
+      "book": "未掲載9都県の弁当屋さん（公式情報調査）",
+      "sheetId": 2107482548,
+      "title": "神奈川県"
+    },
+    {
+      "spreadsheetId": "1Szpgg7QaLXMW436VPgPS039z6dwr79Xw5Q1kGLCCSxc",
+      "book": "未掲載9都県の弁当屋さん（公式情報調査）",
+      "sheetId": 108099772,
+      "title": "熊本県"
+    },
+    {
+      "spreadsheetId": "1Szpgg7QaLXMW436VPgPS039z6dwr79Xw5Q1kGLCCSxc",
+      "book": "未掲載9都県の弁当屋さん（公式情報調査）",
+      "sheetId": 1076663709,
+      "title": "沖縄県"
     }
   ]
 }
