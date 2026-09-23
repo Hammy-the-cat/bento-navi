@@ -12,18 +12,25 @@ async function fixture(elements = []) {
     (tiles[id] ??= []).push(e);
   }
   const cells = {};
+  let offset = 0;
+  const chunks = [];
   for (const [id, items] of Object.entries(tiles)) {
-    const bytes = put(`versions/test/tiles/${id}.json`, {elements: items});
-    cells[id] = {count: items.length, bytes: bytes.length, sha256: await sha256(bytes)};
+    const bytes = encoder.encode(JSON.stringify({elements:items}));
+    cells[id] = {count: items.length, bytes: bytes.length, sha256: await sha256(bytes), offset};
+    offset += bytes.length;
+    chunks.push(bytes);
   }
-  const manifest = put('versions/test/manifest.json', {schema: 1, version: 'test', cellDegrees: 0.1,
+  const packed = Buffer.concat(chunks);
+  objects.set('versions/test/shops.pack', packed);
+  const manifest = put('versions/test/manifest.json', {schema: 2, pack:{bytes:packed.length}, version: 'test', cellDegrees: 0.1,
     count: 10000, coverage: 'Japan', sources: Object.fromEntries(['hokkaido','tohoku','kanto','chubu','kansai','chugoku','shikoku','kyushu'].map(x => [x, {}])), cells});
   put('active.json', {version: 'test', manifest: {bytes: manifest.length, sha256: await sha256(manifest)}});
   const reads = [];
-  return {objects, reads, bucket: {get: async key => {
-    reads.push(key);
+  return {objects, reads, cells, bucket: {get: async (key, options) => {
+    reads.push({key, range:options?.range});
     const bytes = objects.get(key);
-    return bytes ? {size: bytes.length, arrayBuffer: async () => bytes.buffer} : null;
+    const range = options?.range;
+    return bytes ? {size: bytes.length, arrayBuffer: async () => range ? bytes.subarray(range.offset, range.offset + range.length) : bytes} : null;
   }}};
 }
 
@@ -32,19 +39,20 @@ test('境界の両側を検索し半径外は除外、全国の無関係なタ�
     {id:3, lat:35.15, lon:139.15}, {id:4, lat:43, lon:141}]);
   const result = await querySnapshot(f.bucket, {lat:35.1, lon:139.1, radius:500});
   assert.deepEqual(result.elements.map(x => x.id).sort(), [1, 2]);
-  assert.ok(!f.reads.some(key => key.includes('430_1410')));
+  assert.ok(!f.reads.some(r => r.range?.offset === f.cells['430_1410'].offset));
+  assert.ok(f.reads.filter(r => r.key.endsWith('/shops.pack')).every(r => r.range));
 });
 
 test('検証済み全国データの空白地域は正常0件、存在するはずのタイル欠損は失敗', async () => {
   const f = await fixture([{id:1, lat:35, lon:139}]);
   assert.equal((await querySnapshot(f.bucket, {lat:43, lon:141, radius:3000})).elements.length, 0);
-  f.objects.delete('versions/test/tiles/350_1390.json');
+  f.objects.delete('versions/test/shops.pack');
   await assert.rejects(querySnapshot(f.bucket, {lat:35, lon:139, radius:3000}), /Missing/);
 });
 
 test('破損したタイルとmanifestを正常な検索結果にしない', async () => {
   const f = await fixture([{id:1, lat:35, lon:139}]);
-  f.objects.set('versions/test/tiles/350_1390.json', encoder.encode('{"elements":[]}'));
+  f.objects.set('versions/test/shops.pack', encoder.encode('{"elements":[]}'));
   await assert.rejects(querySnapshot(f.bucket, {lat:35, lon:139, radius:3000}), /Invalid/);
   f.objects.delete('versions/test/manifest.json');
   await assert.rejects(querySnapshot(f.bucket, {lat:35, lon:139, radius:3000}), /Missing/);

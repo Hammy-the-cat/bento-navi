@@ -82,6 +82,24 @@ def extract(source, target, region, source_timestamp):
     print(json.dumps(report, ensure_ascii=False))
 
 
+def pack_tiles(output, manifest):
+    """One stored object; the Worker reads only indexed byte ranges."""
+    digest = hashlib.sha256()
+    offset = 0
+    with (output / 'shops.pack').open('wb') as packed:
+        for cell, meta in manifest['cells'].items():
+            raw = (output / 'tiles' / f'{cell}.json').read_bytes()
+            if len(raw) != meta['bytes'] or hashlib.sha256(raw).hexdigest() != meta['sha256']:
+                raise ValueError(f'Corrupt tile: {cell}')
+            meta['offset'] = offset
+            packed.write(raw)
+            digest.update(raw)
+            offset += len(raw)
+    manifest['schema'] = 2
+    manifest['pack'] = {'bytes': offset, 'sha256': digest.hexdigest()}
+    (output / 'manifest.json').write_bytes(encoded(manifest))
+
+
 def assemble(inputs, output, version):
     if not version or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' for c in version):
         raise ValueError('Invalid version')
@@ -133,7 +151,7 @@ def assemble(inputs, output, version):
                     count=sum(c['count'] for c in cells.values()), cells=cells)
     if manifest['count'] < 10000:
         raise ValueError('National coverage check failed')
-    (output / 'manifest.json').write_bytes(encoded(manifest))
+    pack_tiles(output, manifest)
     print(json.dumps({k: v for k, v in manifest.items() if k not in ('cells', 'sources')}, ensure_ascii=False))
     print(f"{len(cells)} tiles, {sum(c['bytes'] for c in cells.values())} bytes")
 

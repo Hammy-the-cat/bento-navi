@@ -9,7 +9,7 @@ import json
 import os
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -55,16 +55,16 @@ class CloudflareStore:
         request = Request(self.base + key, data=body, method='PUT' if body is not None else 'GET',
                           headers={'Authorization': 'Bearer ' + self.token,
                                    'Content-Type': 'application/json', **(headers or {})})
-        for attempt in range(4):
+        for attempt in range(8):
             try:
                 with urlopen(request, timeout=60) as response:
                     return response.read(), response.headers.get('ETag')
             except HTTPError as exc:
                 if exc.code == 404 and body is None:
                     return None, None
-                if exc.code not in (429, 500, 502, 503, 504) or attempt == 3:
+                if exc.code not in (429, 500, 502, 503, 504) or attempt == 7:
                     raise RuntimeError(f'R2 {request.method} failed: HTTP {exc.code}') from None
-                time.sleep(2 ** attempt)
+                time.sleep(max(30 if exc.code == 429 else 1, min(60, 2 ** attempt)))
 
     def get(self, key):
         return self.request(key)
@@ -77,22 +77,33 @@ class CloudflareStore:
 def validate_dataset(folder):
     raw = (folder / 'manifest.json').read_bytes()
     m = json.loads(raw)
-    if (m.get('schema') != 1 or m.get('coverage') != 'Japan' or m.get('cellDegrees') != 0.1
+    if (m.get('schema') != 2 or m.get('coverage') != 'Japan' or m.get('cellDegrees') != 0.1
             or not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', m.get('version', ''))
             or set(m.get('sources', {})) != set(REGIONS) or m.get('count', 0) < 10000
             or len(raw) > MAX_TILE_BYTES):
         raise ValueError('Invalid national manifest')
+    for source in m['sources'].values():
+        stamp = datetime.fromisoformat(source['sourceTimestamp'].replace('Z', '+00:00'))
+        if not -3600 <= (datetime.now(timezone.utc) - stamp).total_seconds() <= 7 * 86400:
+            raise ValueError('Stale extraction; rebuild before publishing')
+    pack = (folder / 'shops.pack').read_bytes()
+    if len(pack) != m['pack']['bytes'] or hashlib.sha256(pack).hexdigest() != m['pack']['sha256']:
+        raise ValueError('Invalid packed data')
     total = 0
+    offset = 0
     for cell, meta in m['cells'].items():
         if not re.fullmatch(r'\d{3}_\d{4}', cell):
             raise ValueError('Invalid tile key')
-        data = (folder / 'tiles' / f'{cell}.json').read_bytes()
+        if meta['offset'] != offset:
+            raise ValueError('Invalid byte range')
+        data = pack[offset:offset + meta['bytes']]
         if (len(data) != meta['bytes'] or len(data) > MAX_TILE_BYTES
                 or hashlib.sha256(data).hexdigest() != meta['sha256']
                 or len(json.loads(data)['elements']) != meta['count']):
             raise ValueError(f'Invalid tile: {cell}')
         total += meta['count']
-    if total != m['count']:
+        offset += meta['bytes']
+    if total != m['count'] or offset != len(pack):
         raise ValueError('Count mismatch')
     return m, raw
 
@@ -112,9 +123,9 @@ def publish(folder, store):
             if m['sources'][region]['records'] < old['sources'][region]['records'] * 0.85:
                 raise ValueError(f'Shop count dropped over 15% in {region}; keeping previous version')
 
-    def upload(cell):
-        key = f"versions/{m['version']}/tiles/{cell}.json"
-        data = (folder / 'tiles' / f'{cell}.json').read_bytes()
+    def upload(name):
+        key = f"versions/{m['version']}/{name}"
+        data = (folder / name).read_bytes()
         existing, _ = store.get(key)
         if existing is not None and existing != data:
             raise ValueError('Immutable version collision')
@@ -122,10 +133,10 @@ def publish(folder, store):
             store.put(key, data, create=True)
         remote, _ = store.get(key)
         if remote != data:
-            raise ValueError(f'R2 verification failed: {cell}')
+            raise ValueError(f'R2 verification failed: {name}')
+        print(f'Uploaded and verified {name}: {len(data)} bytes', flush=True)
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        list(pool.map(upload, m['cells']))
+    upload('shops.pack')
     key = f"versions/{m['version']}/manifest.json"
     existing, _ = store.get(key)
     if existing is not None and existing != raw:

@@ -29,11 +29,15 @@ export async function sha256(bytes) {
 }
 
 async function readObject(bucket, key, expected, cache, ctx, ttl = 86400) {
-  const cacheKey = new Request(`https://snapshot-cache.internal/v1/${key}`);
+  const range = expected?.offset == null ? null : {offset: expected.offset, length: expected.bytes};
+  if (range && (!Number.isSafeInteger(range.offset) || range.offset < 0 ||
+      !Number.isSafeInteger(range.length) || range.length <= 0 || range.length > MAX_TILE_BYTES)) throw new Error('Invalid range');
+  const suffix = range ? `?offset=${range.offset}&length=${range.length}` : '';
+  const cacheKey = new Request(`https://snapshot-cache.internal/v2/${key}${suffix}`);
   const cached = cache && await cache.match(cacheKey);
   if (cached) return cached.json();
-  const object = await bucket.get(key);
-  if (!object || object.size > MAX_TILE_BYTES) throw new Error(`Missing/oversize object: ${key}`);
+  const object = await bucket.get(key, range ? {range} : undefined);
+  if (!object || (!range && object.size > MAX_TILE_BYTES)) throw new Error(`Missing/oversize object: ${key}`);
   const bytes = await object.arrayBuffer();
   if (bytes.byteLength > MAX_TILE_BYTES || (expected &&
       (bytes.byteLength !== expected.bytes || await sha256(bytes) !== expected.sha256))) {
@@ -53,7 +57,7 @@ export async function activeManifest(bucket, cache, ctx) {
     throw new Error('Invalid active pointer');
   }
   const manifest = await readObject(bucket, `versions/${active.version}/manifest.json`, active.manifest, cache, ctx);
-  if (manifest.schema !== 1 || manifest.version !== active.version || manifest.cellDegrees !== 0.1 ||
+  if (manifest.schema !== 2 || !manifest.pack || manifest.version !== active.version || manifest.cellDegrees !== 0.1 ||
       manifest.coverage !== 'Japan' || !manifest.cells || manifest.count < 10000 ||
       Object.keys(manifest.sources || {}).length !== 8) throw new Error('Incomplete manifest');
   return manifest;
@@ -66,7 +70,7 @@ export async function querySnapshot(bucket, params, {cache, ctx} = {}) {
   // Four concurrent reads keep peak memory and outbound connections bounded.
   for (let i = 0; i < ids.length; i += 4) {
     const batches = await Promise.all(ids.slice(i, i + 4).map(async id => {
-      const tile = await readObject(bucket, `versions/${manifest.version}/tiles/${id}.json`, manifest.cells[id], cache, ctx);
+      const tile = await readObject(bucket, `versions/${manifest.version}/shops.pack`, manifest.cells[id], cache, ctx);
       if (!Array.isArray(tile.elements) || tile.elements.length !== manifest.cells[id].count) throw new Error('Incomplete tile');
       return tile.elements;
     }));
@@ -95,7 +99,7 @@ export async function snapshotResponse(request, env, ctx, cache) {
     if (match && VERSION.test(match[1]) && CELL.test(match[2])) {
       const m = await activeManifest(env.SHOP_DATA, cache, ctx);
       if (m.version !== match[1] || !Object.hasOwn(m.cells, match[2])) return new Response('Not found', {status: 404, headers: HEADERS});
-      const data = await readObject(env.SHOP_DATA, `versions/${m.version}/tiles/${match[2]}.json`, m.cells[match[2]], cache, ctx);
+      const data = await readObject(env.SHOP_DATA, `versions/${m.version}/shops.pack`, m.cells[match[2]], cache, ctx);
       return Response.json(data, {headers: {...HEADERS, 'Cache-Control': 'public, max-age=86400'}});
     }
     if (url.pathname !== '/') return new Response('Not found', {status: 404, headers: HEADERS});

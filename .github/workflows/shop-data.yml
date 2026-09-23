@@ -61,7 +61,7 @@ jobs:
             nwr/shop=convenience,supermarket,deli,bakery \
             nwr/amenity=fast_food,restaurant -o "$FILTERED"
           osmium export "$FILTERED" -f geojsonseq --attributes=type,id \
-            --show-errors -o "$JSONSEQ" 2> output/geometry-errors.txt
+            --show-errors -o "$JSONSEQ" 2> "output/$REGION-geometry-errors.txt"
           python tool/shop_data/build.py extract --source "$JSONSEQ" \
             --output "output/$REGION.jsonl" --region "$REGION" --source-timestamp "$STAMP"
       - uses: actions/upload-artifact@v4
@@ -76,6 +76,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - uses: actions/download-artifact@v4
         with:
           pattern: shops-*
@@ -85,10 +88,15 @@ jobs:
         env:
           VERSION: ${{ github.run_id }}-${{ github.run_attempt }}
         run: python tool/shop_data/build.py assemble --inputs inputs --output dataset --version "$VERSION"
+      - name: Check nine regions, three reported venues, and Okinawa
+        run: node tool/shop_data/check.mjs dataset dataset/search-check.json
       - uses: actions/upload-artifact@v4
         with:
           name: shop-dataset
-          path: dataset/
+          path: |
+            dataset/manifest.json
+            dataset/shops.pack
+            dataset/search-check.json
           retention-days: 14
       - name: Publish verified data (enabled only after initial acceptance)
         if: github.ref == 'refs/heads/main' && vars.SHOP_DATA_PUBLISH == 'true'

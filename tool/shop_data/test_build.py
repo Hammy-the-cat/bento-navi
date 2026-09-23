@@ -43,7 +43,7 @@ class MemoryStore:
         return self.objects.get(key), 'etag'
 
     def put(self, key, body, **kwargs):
-        if self.fail and '/tiles/' in key:
+        if self.fail and key.endswith('/shops.pack'):
             raise RuntimeError('Upload interrupted')
         self.writes.append(key)
         self.objects[key] = body
@@ -51,8 +51,7 @@ class MemoryStore:
 
 class PublicationTests(unittest.TestCase):
     def fixture(self, root):
-        (root / 'tiles').mkdir()
-        (root / 'tiles/350_1390.json').write_bytes(b'{"elements":[]}')
+        (root / 'shops.pack').write_bytes(b'{"elements":[]}')
         m = dict(version='test', count=10000, cells={'350_1390': {}}, sources={})
         return m, encoded(m)
 
