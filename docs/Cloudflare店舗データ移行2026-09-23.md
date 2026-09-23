@@ -42,14 +42,14 @@
 
 ## 定期更新の接続設定
 
-ワークフローの予定は毎週月曜03:23 JST。GitHubの定期実行はmainブランチ上で有効になる。
+ワークフローの予定は毎週月曜03:23 JST。mainブランチで定期実行を有効化済み。GitHub側の混雑で開始が遅れる場合がある。
 本番公開処理は `SHOP_DATA_PUBLISH=true` の場合だけ実行する。
 未設定の場合は定期実行の加工ジョブも開始しない。初回移行は既存のWrangler認証で実施。
 
 GitHub repository variables:
 
 - `R2_ACCOUNT_ID`: CloudflareのアカウントID
-- `SHOP_DATA_PUBLISH`: 初回配信検証と専用キーの設定が終わるまで設定しない
+- `SHOP_DATA_PUBLISH`: `true`（2026-09-23に有効化）
 
 GitHub repository secrets:
 
@@ -58,6 +58,9 @@ GitHub repository secrets:
 
 R2キーの権限は専用バケットだけのObject Read & Write。キーをリポジトリ、ログ、ドキュメント、作業用JSONへ保存しない。
 Cloudflareアカウント全体の管理権限や他のバケットへのアクセスは不要。
+専用キー `bento-navi-github-actions` を発行し、上記2つのGitHub Actions Secretsへ保存済み。
+加工から公開までGitHubとCloudflare上で動くため、利用者のPCを起動しておく必要はない。
+この定期処理の対象はOSM由来の店舗データ。調査用スプレッドシートの変更を自動取り込みする処理は含まない。
 
 ## 検証と運用
 
@@ -82,7 +85,18 @@ OSMデータはODbL、帰属は © OpenStreetMap contributors。調査シート�
 - 同じBentoServiceを使うWindows上の実通信テスト: 帯山中学校103件/817ms、アイビースタジアム14件/90ms、市場中学校332件/197ms。調査済み店舗と重複除去後の件数。
 - Flutter静的解析は問題なし、既存自動テスト39件通過。Worker/加工/公開処理の自動テスト14件通過。
 - iPhone実機での体感速度は未測定。会場名の住所検索や地図表示の外部依存は残る。
-- 自動更新用R2キーの発行とGitHub Secretsへの保存はユーザー確認待ち。週次の本番自動更新はまだ有効化していない。
+- 自動更新用R2キーの発行、GitHub Secretsへの保存、週次の本番自動更新の有効化が完了。
+
+## 自動更新の初回実行（2026-09-23）
+
+- 手動起動した定期更新と同じワークフローが、加工・検証・専用キーによるR2公開まで成功。
+- 実行記録: https://github.com/Hammy-the-cat/bento-navi/actions/runs/35822529456
+- 公開完了: 2026-09-23 14:32 JST。データ版 `35822529456-1`、102,288件、2,549タイル。
+- `/health` で本番の新しい版と件数を確認。
+- 本番検索APIの13地点がすべて成功。全地点で新しい版を返し、3km外の結果・OSM識別子の重複なし。所要時間181〜888ms。
+- 帯山中学校・アイビースタジアム・市場中学校を含む。これは座標指定のAPI測定であり、会場名の住所検索やiPhoneの操作全体の時間ではない。
+- 検証結果: `docs/data/r2-auto-update-check-2026-09-23.json`。
+- 今回は初回動作確認として手動起動。次回の定期実行予定は2026-09-28（月）03:23 JST。
 
 参考:
 
