@@ -4,3 +4,8 @@ compatibility_date = "2024-09-23"
 
 # workers.dev サブドメインで公開する（カスタムドメインのDNS設定は不要）。
 # デプロイ後のURLは https://bento-navi-overpass-proxy.<あなたのサブドメイン>.workers.dev
+
+# GitHub Actionsで検証・加工済みの店舗データ。既存iOSの検索URLを維持する。
+[[r2_buckets]]
+binding = "SHOP_DATA"
+bucket_name = "bento-navi-shop-data"

@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.event_name != 'schedule' || vars.SHOP_DATA_PUBLISH == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

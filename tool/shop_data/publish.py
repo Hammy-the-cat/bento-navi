@@ -37,7 +37,8 @@ class S3Store:
     def put(self, key, body, etag=None, create=False):
         conditions = {'IfNoneMatch': '*'} if create else ({'IfMatch': etag} if etag else {})
         self.client.put_object(Bucket=self.bucket, Key=key, Body=body,
-                               ContentType='application/json; charset=utf-8', **conditions)
+                               ContentType=('application/octet-stream' if key.endswith('.pack')
+                                            else 'application/json; charset=utf-8'), **conditions)
 
 
 class CloudflareStore:
@@ -54,7 +55,8 @@ class CloudflareStore:
         # Credentials are confined to the Authorization header for Cloudflare.
         request = Request(self.base + key, data=body, method='PUT' if body is not None else 'GET',
                           headers={'Authorization': 'Bearer ' + self.token,
-                                   'Content-Type': 'application/json', **(headers or {})})
+                                   'Content-Type': ('application/octet-stream' if key.endswith('.pack')
+                                                    else 'application/json'), **(headers or {})})
         for attempt in range(8):
             try:
                 with urlopen(request, timeout=60) as response:
