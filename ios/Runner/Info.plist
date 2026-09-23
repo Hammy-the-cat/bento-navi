@@ -26,17 +26,23 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- AdMob app registered for com.bentonavi.app. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-9774452859108904~9714324559</string>
+	<key>GADDelayAppMeasurementInit</key>
+	<true/>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict><key>SKAdNetworkIdentifier</key><string>cstr6suwn9.skadnetwork</string></dict>
+	</array>
 	<!-- 位置情報: 「現在地」ボタンで周辺の弁当店を検索するために使用 -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>現在地の周辺にある、お弁当が買えるお店（コンビニ・スーパー・弁当店など）を検索するために使用します。位置情報が端末外に保存されることはありません。</string>
+	<string>現在地の周辺にある、お弁当が買えるお店（コンビニ・スーパー・弁当店など）を検索するために使用し、検索サービスに座標を送信します。</string>
 	<!-- 常時位置情報のAPIは使用しないが、利用ライブラリが参照しているため
 	     Appleの要求により説明文の記載が必要(警告90683への対応) -->
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>アプリの利用中に、現在地の周辺でお弁当が買えるお店を検索するために使用します。バックグラウンドで位置情報を取得することはありません。</string>
-	<!-- 広告(AdMob)のキーはv1.0では入れていない。
-	     アプリ版に広告を載せるときは GADApplicationIdentifier と
-	     SKAdNetworkItems をここに戻し、あわせてApp Store Connectの
-	     プライバシー申告も更新すること。詳細は docs/appstore_privacy.md -->
+	<!-- 広告配信は MOBILE_ADS_MODE で明示的に切り替える。 -->
 	<!-- 輸出コンプライアンス: 標準的な暗号化(HTTPS)のみ使用。
 	     これを入れておくと提出のたびに聞かれる質問を省略できる -->
 	<key>ITSAppUsesNonExemptEncryption</key>

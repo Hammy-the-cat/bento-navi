@@ -22,7 +22,7 @@
 #   まで自動実行する。Windowsのブラウザだけで完結する。
 
 workflows:
-  ios-release:
+  ios-release: &ios_workflow
     name: iOS リリース (TestFlight)
     instance_type: mac_mini_m2
     max_build_duration: 60
@@ -37,6 +37,8 @@ workflows:
       cocoapods: default
       vars:
         BUNDLE_ID: "com.bentonavi.app"
+        MOBILE_ADS_MODE: "production"
+        ADMOB_IOS_BANNER_ID: "ca-app-pub-9774452859108904/2626172025"
       # Codemagicの画面(Environment variables)で登録した変数グループ。
       # グループ「appstore」に CERTIFICATE_PRIVATE_KEY を入れておくこと。
       groups:
@@ -47,8 +49,22 @@ workflows:
       #   下の fetch-signing-files --create で「無ければ作る」方式にしている。
 
     scripts:
+      - name: 店舗シート反映漏れの検証
+        script: python3 tool/check_shop_catalog.py
+
       - name: Flutterパッケージを取得
         script: flutter pub get
+
+      - name: 広告ビルド設定の検証
+        script: |
+          # 実機確認済み。本番とテストの広告設定を明示する。
+          case "$MOBILE_ADS_MODE" in
+            test) ;;
+            production)
+              test "$ADMOB_IOS_BANNER_ID" = "ca-app-pub-9774452859108904/2626172025" || exit 1
+              ;;
+            *) echo "An explicit test or production ad mode is required."; exit 1 ;;
+          esac
 
       # 解析・テストはCocoaPods取得より前に実行する。
       # pod install後は build/ に依存パッケージのソースが展開され、
@@ -86,10 +102,16 @@ workflows:
         script: |
           # ビルド番号はCodemagicが自動でインクリメントする値を使う
           flutter build ipa --release \
+            --dart-define=MOBILE_ADS_MODE="$MOBILE_ADS_MODE" \
+            --dart-define=ADMOB_IOS_BANNER_ID="${ADMOB_IOS_BANNER_ID:-}" \
             --build-number=$PROJECT_BUILD_NUMBER \
             --export-options-plist=/Users/builder/export_options.plist
 
+      - name: Export bundled SDK privacy declarations
+        script: python3 tool/ios_privacy_report.py
+
     artifacts:
+      - build/ios/privacy-report.txt
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
 
@@ -110,3 +132,16 @@ workflows:
         submit_to_testflight: false
         # 審査へ自動提出したい場合は下をtrueにする(慣れるまではfalse推奨)
         submit_to_app_store: false
+
+  ios-admob-test:
+    <<: *ios_workflow
+    name: iOS 広告の実機テスト専用
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.bentonavi.app"
+        MOBILE_ADS_MODE: "test"
+      groups:
+        - appstore

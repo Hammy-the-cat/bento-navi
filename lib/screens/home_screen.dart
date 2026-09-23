@@ -13,6 +13,8 @@ import '../config/ad_config.dart';
 import '../models/shop.dart';
 import '../services/bento_service.dart';
 import '../widgets/ad_banner.dart';
+import '../widgets/mobile_banner.dart';
+import 'catalog_screen.dart';
 
 /// カテゴリごとのテーマカラー
 Color categoryColor(ShopCategory c) {
@@ -75,9 +77,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _refreshingShops = false;
   int _searchGeneration = 0;
   String? _error;
+  String? _searchNotice;
   Place? _selectedPlace;
   List<Shop> _shops = [];
   bool _searched = false;
+  int _listLimit = 40;
   bool _showMap = false;
   int _radius = 1000;
   final Set<ShopCategory> _activeFilters = {};
@@ -89,7 +93,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(_service.warmUp().catchError((Object _) {}));
     _loadHistory();
+    if (mobileAdsEnabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(mobileAdConsent.start());
+      });
+    }
     // Web版: ?q=会場名&r=3000 で開くと自動検索する
     final r = widget.initialRadius;
     if (r != null && _radiusOptions.contains(r)) {
@@ -178,6 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _searchByQuery({bool autoPick = false}) async {
+    _service.cancelPendingSearch();
     final generation = ++_searchGeneration;
     final query = _queryController.text.trim();
     if (query.isEmpty) {
@@ -188,6 +199,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _loading = true;
       _refreshingShops = false;
       _error = null;
+      _searchNotice = null;
+      _searched = false;
+      _selectedPlace = null;
+      _shops = [];
     });
     try {
       final places = await _service.geocode(query);
@@ -221,11 +236,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _searchByCurrentLocation() async {
+    _service.cancelPendingSearch();
     final generation = ++_searchGeneration;
     setState(() {
       _loading = true;
       _refreshingShops = false;
       _error = null;
+      _searchNotice = null;
+      _searched = false;
+      _selectedPlace = null;
+      _shops = [];
     });
     try {
       var permission = await Geolocator.checkPermission();
@@ -317,11 +337,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _searchAround(Place place) async {
+    _service.cancelPendingSearch();
     final generation = ++_searchGeneration;
     setState(() {
       _loading = true;
       _refreshingShops = false;
       _error = null;
+      _searchNotice = null;
+      _shops = [];
+      _searched = false;
+      _listLimit = 40;
       _selectedPlace = place;
       _activeFilters.clear();
     });
@@ -330,6 +355,10 @@ class _HomeScreenState extends State<HomeScreen> {
         place.lat,
         place.lon,
         radiusMeters: _radius,
+        onNotice: (notice) {
+          if (!mounted || generation != _searchGeneration) return;
+          setState(() => _searchNotice = notice);
+        },
         onInitialResults: (shops) {
           if (!mounted || generation != _searchGeneration) return;
           setState(() {
@@ -388,6 +417,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _resetSearch() {
+    _service.cancelPendingSearch();
     _searchGeneration++;
     FocusManager.instance.primaryFocus?.unfocus();
     _queryController.clear();
@@ -395,6 +425,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _loading = false;
       _refreshingShops = false;
       _error = null;
+      _searchNotice = null;
       _selectedPlace = null;
       _shops = [];
       _searched = false;
@@ -414,6 +445,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8F2),
+      bottomNavigationBar: _searched && !_loading && _shops.isNotEmpty
+          ? const MobileSearchBanner()
+          : null,
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -425,8 +459,22 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 children: [
                   _buildSearchCard(theme),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            CatalogScreen(loadCatalog: _service.loadCatalog),
+                      ),
+                    ),
+                    icon: const Icon(Icons.storefront_outlined),
+                    label: const Text('地域別の掲載店から探す'),
+                  ),
                   const SizedBox(height: 14),
                   if (_error != null) _buildError(theme),
+                  if (_searchNotice != null)
+                    Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(_searchNotice!)),
                   if (_loading) _buildLoading(theme),
                   if (_refreshingShops)
                     const Padding(
@@ -659,7 +707,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(20),
                         side: BorderSide.none,
                       ),
-                      onSelected: (_) => setState(() => _radius = r),
+                      onSelected: (_) {
+                        if (_radius == r) return;
+                        setState(() => _radius = r);
+                        final place = _selectedPlace;
+                        if (place != null) unawaited(_searchAround(place));
+                      },
                     );
                   }).toList(),
                 ),
@@ -924,6 +977,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       side: BorderSide(color: color.withValues(alpha: 0.4)),
                     ),
                     onSelected: (sel) => setState(() {
+                      _listLimit = 40;
                       sel ? _activeFilters.add(c) : _activeFilters.remove(c);
                     }),
                   ),
@@ -959,6 +1013,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Colors.grey.shade600,
                 ),
               ),
+              if (_radius < 3000)
+                TextButton(
+                  onPressed: () {
+                    setState(() => _radius = 3000);
+                    final place = _selectedPlace;
+                    if (place != null) unawaited(_searchAround(place));
+                  },
+                  child: const Text('3kmに広げて再検索'),
+                ),
             ],
           ),
         ),
@@ -973,7 +1036,8 @@ class _HomeScreenState extends State<HomeScreen> {
   /// 店舗リストに一定間隔で広告を挟む
   List<Widget> _buildShopListWithAds(List<Shop> shops) {
     final widgets = <Widget>[];
-    for (var i = 0; i < shops.length; i++) {
+    final visibleCount = shops.length < _listLimit ? shops.length : _listLimit;
+    for (var i = 0; i < visibleCount; i++) {
       widgets.add(
         _ShopCard(
           shop: shops[i],
@@ -985,6 +1049,12 @@ class _HomeScreenState extends State<HomeScreen> {
       if (isInterval && i != shops.length - 1) {
         widgets.add(const AdBanner(slot: AdConfig.slotInFeed, height: 90));
       }
+    }
+    if (visibleCount < shops.length) {
+      widgets.add(TextButton(
+        onPressed: () => setState(() => _listLimit += 40),
+        child: Text('さらに表示（残り${shops.length - visibleCount}件）'),
+      ));
     }
     return widgets;
   }
@@ -1426,6 +1496,7 @@ class _HomeScreenState extends State<HomeScreen> {
               link('よくある質問', 'faq.html'),
               link('運営者について', 'about.html'),
               link('プライバシーポリシー', 'privacy.html'),
+              const MobileAdPrivacyButton(),
             ],
           ),
           const SizedBox(height: 4),
