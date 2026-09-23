@@ -1,4 +1,5 @@
 import {snapshotResponse} from './snapshot.js';
+import {catalogResponse} from './catalog.js';
 
 /**
  * べんとうナビの店舗検索プロキシ。2系統を総時間7秒で照会し、
@@ -119,6 +120,7 @@ export default {
     // Activate only after a complete, validated dataset has been published.
     // Existing iOS versions understand the same {elements: [...]} response.
     if (env.SHOP_DATA) {
+      if (url.pathname.startsWith('/catalog/')) return catalogResponse(request, env, ctx, caches.default);
       return snapshotResponse(request, env, ctx, caches.default);
     }
 

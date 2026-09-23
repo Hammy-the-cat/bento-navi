@@ -1,15 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show kIsWeb, compute;
+import 'package:flutter/foundation.dart' show kIsWeb, Listenable;
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../models/shop.dart';
 import '../models/catalog_shop.dart';
-
-List<Map<String, dynamic>> _decodeShops(String text) =>
-    (jsonDecode(text) as List<dynamic>).cast<Map<String, dynamic>>();
+import 'catalog_store.dart';
 
 /// Nominatimの利用規約では、アプリを識別できるUser-Agentが必須。
 /// ライブラリ既定のUser-Agent(Dart/x.y (dart:io))は403で拒否されるため、
@@ -26,9 +24,22 @@ Map<String, String> get _apiHeaders =>
 class BentoService {
   BentoService({
     http.Client? client,
+    CatalogStore? catalogStore,
     this.proxyTimeout = const Duration(seconds: 8),
     this.fallbackTimeout = const Duration(seconds: 4),
-  }) : _client = client ?? http.Client();
+  })  : _client = client ?? http.Client(),
+        _catalog = catalogStore ?? CatalogStore() {
+    _catalog.addListener(_catalogChanged);
+  }
+
+  final CatalogStore _catalog;
+  Listenable get catalogChanges => _catalog;
+  void _catalogChanged() {
+    _shopCache.clear();
+    _shopCacheTimes.clear();
+  }
+
+  Future<void> refreshCatalog() => _catalog.refresh();
 
   final http.Client _client;
   final Duration proxyTimeout, fallbackTimeout;
@@ -43,6 +54,8 @@ class BentoService {
   void dispose() {
     cancelPendingSearch();
     _client.close();
+    _catalog.removeListener(_catalogChanged);
+    _catalog.dispose();
   }
 
   Future<http.Response> _request(Uri uri, Duration timeout,
@@ -94,7 +107,6 @@ class BentoService {
         .toList();
   }
 
-  Future<List<Map<String, dynamic>>>? _curatedLoading;
   static const _nominatimBase = 'https://nominatim.openstreetmap.org/search';
 
   /// Overpassの前段に置いたCloudflare Workersのキャッシュプロキシ。
@@ -122,8 +134,6 @@ class BentoService {
     'https://overpass.kumi.systems/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   ];
-
-  List<Map<String, dynamic>>? _curatedCache;
 
   /// 施設名の分割に使うキーワード（長いものを先に）
   static const _facilityKeywords = [
@@ -360,8 +370,9 @@ class BentoService {
             .toList();
       }
     }
-    final curated =
+    var curated =
         await searchCuratedShops(lat, lon, radiusMeters: radiusMeters);
+    final catalogVersion = _catalog.version;
     if (generation != _requestGeneration) throw StateError('検索が切り替わりました');
     if (curated.isNotEmpty) onInitialResults?.call(List<Shop>.of(curated));
     List<dynamic>? elements;
@@ -394,6 +405,11 @@ out center tags;
             Uri.parse(_overpassEndpoints.first), fallbackTimeout,
             query: query));
       } catch (_) {
+        if (catalogVersion != _catalog.version) {
+          curated =
+              await searchCuratedShops(lat, lon, radiusMeters: radiusMeters);
+        }
+        if (generation != _requestGeneration) throw StateError('検索が切り替わりました');
         if (curated.isNotEmpty) {
           onNotice?.call('登録済み店舗を表示しています。通信できなかったため、ほかの周辺店舗は確認できていません。');
           return curated;
@@ -444,6 +460,10 @@ out center tags;
     }
 
     // 同名でも別地点のチェーン店舗は残す。
+    if (catalogVersion != _catalog.version) {
+      curated = await searchCuratedShops(lat, lon, radiusMeters: radiusMeters);
+    }
+    if (generation != _requestGeneration) throw StateError('検索が切り替わりました');
     shops.sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
     final merged = <Shop>[...curated];
     for (final shop in shops) {
@@ -504,19 +524,9 @@ out center tags;
       (await _loadCuratedData()).map(CatalogShop.fromJson).toList();
 
   Future<List<Map<String, dynamic>>> _loadCuratedData() async {
-    if (_curatedCache != null) return _curatedCache!;
-    return _curatedLoading ??= _readCuratedData();
-  }
-
-  Future<List<Map<String, dynamic>>> _readCuratedData() async {
-    try {
-      final text = await rootBundle.loadString('assets/shops.json');
-      final data = await compute(_decodeShops, text);
-      _curatedCache = data;
-      return data;
-    } finally {
-      _curatedLoading = null;
-    }
+    final data = await _catalog.load();
+    unawaited(refreshCatalog());
+    return data;
   }
 
   String? _nonEmpty(dynamic value) {

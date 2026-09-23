@@ -69,7 +69,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _service = BentoService();
   final _queryController = TextEditingController();
 
@@ -93,6 +93,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _service.catalogChanges.addListener(_onCatalogChanged);
     unawaited(_service.warmUp().catchError((Object _) {}));
     _loadHistory();
     if (mobileAdsEnabled) {
@@ -128,10 +130,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _service.catalogChanges.removeListener(_onCatalogChanged);
     _searchGeneration++;
     _service.dispose();
     _queryController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_service.refreshCatalog());
+    }
+  }
+
+  void _onCatalogChanged() {
+    final place = _selectedPlace;
+    if (mounted && place != null && (_searched || _loading)) {
+      unawaited(_searchAround(place));
+    }
   }
 
   Future<void> _loadHistory() async {
@@ -462,8 +480,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   TextButton.icon(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) =>
-                            CatalogScreen(loadCatalog: _service.loadCatalog),
+                        builder: (_) => CatalogScreen(
+                            loadCatalog: _service.loadCatalog,
+                            changes: _service.catalogChanges),
                       ),
                     ),
                     icon: const Icon(Icons.storefront_outlined),

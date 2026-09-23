@@ -1,0 +1,63 @@
+name: Update sheet catalog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 19 * * *' # 04:41 JST; intentionally away from the hourly rush.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sheet-catalog.yml'
+      - 'tool/catalog_data/**'
+      - 'tool/sync_sheet_snapshot.mjs'
+      - 'tool/sheet_sources.json'
+
+permissions:
+  contents: read
+concurrency:
+  group: sheet-catalog
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: vars.SHEET_CATALOG_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'openpyxl==3.1.5' 'boto3>=1.40,<2'
+      - name: Test validation and publication safeguards
+        run: |
+          node --test tool/sync_sheet_snapshot.test.mjs tool/catalog_data/*.test.mjs workers/overpass-proxy/src/*.test.mjs
+          python -m unittest discover -s tool/catalog_data -p 'test_*.py'
+      - name: Download last successful catalog
+        env: &r2
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_BUCKET: bento-navi-shop-data
+          AWS_ACCESS_KEY_ID: ${{ secrets.SHOP_DATA_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SHOP_DATA_R2_SECRET_ACCESS_KEY }}
+        run: python tool/catalog_data/publish.py previous --folder dataset
+      - name: Read all registered Sheets without changing sharing
+        run: python tool/catalog_data/fetch_sheets.py --output snapshot.json
+      - name: Validate changes, closures, duplicates and coordinates
+        run: node tool/catalog_data/build.mjs snapshot.json dataset/previous.json dataset
+      - name: Publish only complete verified changes
+        if: github.ref == 'refs/heads/main'
+        env: *r2
+        run: python tool/catalog_data/publish.py publish --folder dataset
+      - name: Verify public catalog
+        if: github.ref == 'refs/heads/main'
+        run: node tool/catalog_data/check.mjs dataset/manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sheet-catalog-audit
+          path: |
+            dataset/manifest.json
+            dataset/audit.json
+          retention-days: 14
