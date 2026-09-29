@@ -7,6 +7,13 @@ on:
       - '.github/workflows/shop-data.yml'
       - 'tool/shop_data/**'
       - 'workers/overpass-proxy/src/**'
+      # Changes to bundled shops or their source registry must run the audit
+      # immediately, rather than first failing at the next weekly refresh.
+      - 'assets/shops.json'
+      - 'docs/data/sheet-sync-audit.json'
+      - 'tool/sheet_sources.json'
+      - 'tool/check_shop_catalog.py'
+      - 'tool/sync_sheet_snapshot.mjs'
   schedule:
     - cron: '23 18 * * 0'
 

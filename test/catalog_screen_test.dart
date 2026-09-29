@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:bento_navi/models/catalog_shop.dart';
 import 'package:bento_navi/screens/catalog_screen.dart';
 import 'package:bento_navi/services/bento_service.dart';
@@ -11,10 +14,19 @@ void main() {
     final service = BentoService();
     addTearDown(service.dispose);
     final catalog = await service.loadCatalog();
-    expect(catalog.length, 11022);
+    final audit = jsonDecode(
+      File('docs/data/sheet-sync-audit.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final closedIds = (audit['closed'] as List).map((s) => s['id']).toSet();
+    final expectedIds = (audit['tabs'] as List)
+        .expand((tab) => tab['ids'] as List)
+        .toSet()
+        .difference(closedIds);
+    expect(catalog.map((s) => s.id).toSet(), expectedIds);
     expect(catalog.map((s) => s.id).toSet().length, catalog.length);
-    expect(catalog.map((s) => s.prefecture).toSet().length, 38);
-    expect(catalog.where((s) => !s.hasLocation).length, 7);
+    expect(catalog.map((s) => s.prefecture).toSet().length, 47);
+    expect(catalog.where((s) => !s.hasLocation).length,
+        (audit['directoryOnly'] as List).length);
     expect(catalog.any((s) => s.id == 'MYZ-0062'), isFalse);
     expect(
       catalog.firstWhere((s) => s.id == 'MYZ-0444').matches('宮崎 甘雨'),
