@@ -3,6 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:bento_navi/services/bento_service.dart';
+import 'package:bento_navi/services/catalog_store.dart';
+
+// Network-only cases must not depend on which real-world regions are listed.
+CatalogStore emptyCatalog() => CatalogStore(
+      loadAsset: () async => '[]',
+      client: MockClient((_) async => http.Response('unavailable', 503)),
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -104,13 +111,15 @@ void main() {
 
   test('不正な200応答とtimeout remarkを0件として保存しない', () async {
     var calls = 0;
-    final service = BentoService(client: MockClient((_) async {
-      calls++;
-      return http.Response(
-          '{"elements":[],"remark":"runtime error: timeout"}', 200);
-    }));
+    final service = BentoService(
+        catalogStore: emptyCatalog(),
+        client: MockClient((_) async {
+          calls++;
+          return http.Response(
+              '{"elements":[],"remark":"runtime error: timeout"}', 200);
+        }));
     addTearDown(service.dispose);
-    // 熊本は登録済み店舗なし。失敗は0件ではなくエラー。
+    // 登録店舗なしの条件では、失敗は0件ではなくエラー。
     await expectLater(
         service.searchShops(32.8013096, 130.7443793, radiusMeters: 3000),
         throwsException);
@@ -138,6 +147,7 @@ void main() {
 
   test('同名の別支店を維持し半径外・不正な店舗は除外する', () async {
     final service = BentoService(
+        catalogStore: emptyCatalog(),
         client: MockClient((_) async => http.Response(
             '''
       {"elements":[
