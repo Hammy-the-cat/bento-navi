@@ -9,6 +9,9 @@ import 'package:bento_navi/services/bento_service.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = null;
+  // This opt-in flutter test lives under tool/ to avoid running real HTTP in CI.
+  // Its SharedPreferences storage must still be isolated from device storage.
+  // ignore: invalid_use_of_visible_for_testing_member
   SharedPreferences.setMockInitialValues({});
   test(
       'published catalog decodes and replaces bundled data through the app service',
