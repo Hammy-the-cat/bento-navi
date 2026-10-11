@@ -1,3 +1,4 @@
+import {schoolsResponse} from './schools.js';
 import {snapshotResponse} from './snapshot.js';
 import {catalogResponse} from './catalog.js';
 
@@ -120,6 +121,7 @@ export default {
     // Activate only after a complete, validated dataset has been published.
     // Existing iOS versions understand the same {elements: [...]} response.
     if (env.SHOP_DATA) {
+      if (url.pathname.startsWith('/schools/')) return schoolsResponse(request, env, ctx, caches.default);
       if (url.pathname.startsWith('/catalog/')) return catalogResponse(request, env, ctx, caches.default);
       return snapshotResponse(request, env, ctx, caches.default);
     }

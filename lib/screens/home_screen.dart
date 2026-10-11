@@ -233,7 +233,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         return;
       }
       Place? place = places.first;
-      if (!autoPick && places.length > 1 && mounted) {
+      if ((places.length > 1 || places.any((p) => p.requiresConfirmation)) &&
+          mounted) {
         place = await _pickPlace(places);
         if (!mounted || generation != _searchGeneration) return;
         if (place == null) {
@@ -327,11 +328,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'どの場所ですか？',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                places.any((p) => p.requiresConfirmation)
+                    ? '学校名の候補です。お探しの学校を選んでください'
+                    : 'どの場所ですか？',
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
             ),
             ...places.map(
@@ -1515,6 +1519,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               link('よくある質問', 'faq.html'),
               link('運営者について', 'about.html'),
               link('プライバシーポリシー', 'privacy.html'),
+              link('学校データの出典', 'school-data.html'),
               const MobileAdPrivacyButton(),
             ],
           ),

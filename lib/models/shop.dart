@@ -151,11 +151,13 @@ class Place {
   final String displayName;
   final double lat;
   final double lon;
+  final bool requiresConfirmation;
 
   const Place({
     required this.displayName,
     required this.lat,
     required this.lon,
+    this.requiresConfirmation = false,
   });
 }
 
