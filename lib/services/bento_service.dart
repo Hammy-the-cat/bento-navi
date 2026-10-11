@@ -8,6 +8,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import '../models/shop.dart';
 import '../models/catalog_shop.dart';
 import 'catalog_store.dart';
+import 'school_store.dart';
+import 'school_search.dart';
 
 /// Nominatimの利用規約では、アプリを識別できるUser-Agentが必須。
 /// ライブラリ既定のUser-Agent(Dart/x.y (dart:io))は403で拒否されるため、
@@ -25,21 +27,33 @@ class BentoService {
   BentoService({
     http.Client? client,
     CatalogStore? catalogStore,
+    SchoolStore? schoolStore,
     this.proxyTimeout = const Duration(seconds: 8),
     this.fallbackTimeout = const Duration(seconds: 4),
   })  : _client = client ?? http.Client(),
-        _catalog = catalogStore ?? CatalogStore() {
+        _catalog = catalogStore ?? CatalogStore(),
+        _schools = schoolStore ?? SchoolStore() {
     _catalog.addListener(_catalogChanged);
+    _schools.addListener(_schoolsChanged);
   }
 
   final CatalogStore _catalog;
+  final SchoolStore _schools;
+  SchoolSearch? _schoolSearch;
+  void _schoolsChanged() {
+    _schoolSearch = null;
+    _placeCache.clear();
+  }
+
   Listenable get catalogChanges => _catalog;
   void _catalogChanged() {
     _shopCache.clear();
     _shopCacheTimes.clear();
   }
 
-  Future<void> refreshCatalog() => _catalog.refresh();
+  Future<void> refreshCatalog() async {
+    await Future.wait([_catalog.refresh(), _schools.refresh()]);
+  }
 
   final http.Client _client;
   final Duration proxyTimeout, fallbackTimeout;
@@ -56,6 +70,8 @@ class BentoService {
     _client.close();
     _catalog.removeListener(_catalogChanged);
     _catalog.dispose();
+    _schools.removeListener(_schoolsChanged);
+    _schools.dispose();
   }
 
   Future<http.Response> _request(Uri uri, Duration timeout,
@@ -78,7 +94,8 @@ class BentoService {
   }
 
   Future<void> warmUp() async {
-    await _loadCuratedData();
+    await Future.wait([_loadCuratedData(), _schools.load()]);
+    unawaited(_schools.refresh());
   }
 
   final _shopCache = <String, List<Shop>>{};
@@ -171,6 +188,12 @@ class BentoService {
     final known = await _knownVenues(normalized);
     if (generation != _requestGeneration) throw StateError('検索が切り替わりました');
     if (known.isNotEmpty) return known;
+    if (isSchoolQuery(normalized)) {
+      _schoolSearch ??= SchoolSearch(await _schools.load());
+      if (generation != _requestGeneration) throw StateError('検索が切り替わりました');
+      final schools = _schoolSearch!.search(normalized);
+      if (schools.isNotEmpty) return schools;
+    }
     final cached = _placeCache[normalized];
     if (cached != null) return List<Place>.of(cached);
 
@@ -229,6 +252,7 @@ class BentoService {
       final facilityTokens =
           tokens.where((t) => _facilityKeywords.any(t.contains)).toList();
       places = places
+          .where((p) => matchesSchoolQuery(normalized, p.displayName))
           .where((p) => facilityTokens.every((t) => p.displayName
               .replaceAll(' ', '')
               .contains(t.replaceAll(' ', ''))))
